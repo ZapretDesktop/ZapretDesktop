@@ -101,6 +101,7 @@ class MainWindow(StandardMainWindow):
         self._started_winws_this_session = False
         self.is_restarting = False  # Флаг для предотвращения множественных перезапусков
         self.user_stopped = False  # Флаг явной остановки пользователем (чтобы не запускать автоперезапуск)
+        self._is_auto_start = False  # True при автозапуске стратегии — не показываем прогресс-бар
         self.bat_start_time = None  # Время запуска .bat файла (для проверки появления winws.exe)
         self.process_monitor_timer = QTimer(self)  # Таймер для отслеживания процесса
         self.process_monitor_timer.timeout.connect(self.check_winws_process)
@@ -192,70 +193,73 @@ class MainWindow(StandardMainWindow):
         central_widget = QWidget()
         self.setContentWidget(central_widget)
         
-        # Основной layout
+        # Основной layout: без боковых отступов у прогресс-бара, остальной контент с отступами 20
         layout = QVBoxLayout()
         layout.setSpacing(20)
-        layout.setContentsMargins(20, 20, 20, 10)
+        layout.setContentsMargins(0, 20, 0, 10)  # боковые 0 — прогресс-бар на всю ширину
         central_widget.setLayout(layout)
         
-        # Тонкая полоска прогресса под QMenuBar (1px); скрыта по умолчанию, без сдвига виджетов
+        # Полоска прогресса без боковых отступов (на всю ширину окна)
+        progress_bar_container = QWidget()
+        progress_bar_container.setSizePolicy(QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Fixed)
+        progress_bar_container_layout = QHBoxLayout(progress_bar_container)
+        progress_bar_container_layout.setContentsMargins(0, 0, 0, 0)
+        progress_bar_container_layout.setSpacing(0)
         self.menu_progress_bar = QProgressBar()
         self.menu_progress_bar.setSizePolicy(QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Fixed)
         self.menu_progress_bar.setTextVisible(False)
         self.menu_progress_bar.setRange(0, 100)
         self.menu_progress_bar.setValue(0)
-        # Явные стили, чтобы полоска была видна на любой теме (фон и заливка)
         self.menu_progress_bar.setStyleSheet(
-            "QProgressBar { background: transparent; border: none; min-height: 1px; max-height: 1px; } "
+            "QProgressBar { background: transparent; border: none; min-height: 1px; max-height: 1px; margin: 0; padding: 0; } "
             "QProgressBar::chunk { background: #0078d4; min-height: 1px; }"
         )
-        # Нулевая высота до добавления в layout — при первом запуске виджеты не сдвигаются
         self.menu_progress_bar.setFixedHeight(0)
         self.menu_progress_bar.setMaximumHeight(0)
-        layout.addWidget(self.menu_progress_bar)
+        progress_bar_container_layout.addWidget(self.menu_progress_bar)
+        layout.addWidget(progress_bar_container)
         
-        # Добавляем растягивающий элемент сверху, чтобы элементы были по центру
-        layout.addStretch()
+        # Контент с боковыми отступами (комбо, кнопка, версия)
+        content_widget = QWidget()
+        content_layout = QVBoxLayout(content_widget)
+        content_layout.setContentsMargins(20, 0, 20, 0)
+        content_layout.setSpacing(20)
+        layout.addWidget(content_widget)
+        
+        content_layout.addStretch()
         
         # ComboBox
         self.combo_box = CustomComboBox()
         self.load_bat_files()
-        # Сохраняем стратегию при изменении
         self.combo_box.currentTextChanged.connect(self.on_strategy_changed)
         self.combo_box.setMinimumHeight(35)
         self.combo_box.setMinimumWidth(300)
-        # Выравниваем ComboBox по центру
         combo_layout = QHBoxLayout()
         combo_layout.addStretch()
         combo_layout.addWidget(self.combo_box)
         combo_layout.addStretch()
-        layout.addLayout(combo_layout)
+        content_layout.addLayout(combo_layout)
         
         # Кнопка Запустить/Остановить
         self.action_button = QPushButton('')
         self.action_button.setCursor(Qt.CursorShape.PointingHandCursor)
         self.action_button.setMinimumHeight(40)
-        self.action_button.setMinimumWidth(300)  # Та же ширина, что и у ComboBox
+        self.action_button.setMinimumWidth(300)
         self.action_button.clicked.connect(self.toggle_action)
-        # Выравниваем кнопку по центру
         button_layout = QHBoxLayout()
         button_layout.addStretch()
         button_layout.addWidget(self.action_button)
         button_layout.addStretch()
-        layout.addLayout(button_layout)
+        content_layout.addLayout(button_layout)
         
-        # Восстанавливаем последнюю выбранную стратегию (после создания action_button)
         self.restore_last_strategy()
         
-        # Добавляем растягивающий элемент, чтобы версия была внизу
-        layout.addStretch()
+        content_layout.addStretch()
         
-        # Отдельный вертикальный лейаут с нулевым отступом между версией и почтой
         bottom_layout = QVBoxLayout()
         bottom_layout.setContentsMargins(0, 0, 0, 0)
         bottom_layout.setSpacing(0)
         
-        # Виджет с информацией о версии / MD5
         self.version_label = QLabel()
         self.version_label.setAlignment(Qt.AlignmentFlag.AlignCenter)
         self.version_label.setTextFormat(Qt.TextFormat.RichText)
@@ -268,7 +272,6 @@ class MainWindow(StandardMainWindow):
         self.load_version_info()
         bottom_layout.addWidget(self.version_label)
 
-        # Кликабельный e-mail (mailto)
         self.contact_label = QLabel(
             '<a href="mailto:ZapretDesktop@proton.me">ZapretDesktop@proton.me</a>'
         )
@@ -282,7 +285,7 @@ class MainWindow(StandardMainWindow):
         self.contact_label.customContextMenuRequested.connect(self._show_contact_context_menu)
         bottom_layout.addWidget(self.contact_label)
 
-        layout.addLayout(bottom_layout)
+        content_layout.addLayout(bottom_layout)
 
         # Проверка обновлений программы один раз при запуске (с задержкой, когда event loop уже работает)
         QTimer.singleShot(0, self._run_startup_update_check)
@@ -1817,7 +1820,7 @@ class MainWindow(StandardMainWindow):
             try:
                 result = subprocess.run(['sc', 'query', 'WinDivert'], capture_output=True, text=True, timeout=5)
                 windivert_running = 'RUNNING' in result.stdout or 'STOP_PENDING' in result.stdout
-            except:
+            except Exception:
                 pass
             
             if not winws_running and windivert_running:
@@ -1849,7 +1852,7 @@ class MainWindow(StandardMainWindow):
                         strategy_path, _ = winreg.QueryValueEx(key, "zapret-discord-youtube")
                         results.append(("✓", tr('diag_zapret_strategy', lang).format(strategy_path)))
                         winreg.CloseKey(key)
-                    except:
+                    except Exception:
                         pass
                 elif 'STOPPED' in result.stdout:
                     results.append(("?", tr('diag_zapret_stopped', lang)))
@@ -2534,7 +2537,7 @@ if ($res.StatusCode -eq 200) {{ $res.Content | Out-File -FilePath $out -Encoding
                 # Удаляем временный файл
                 try:
                     os.remove(temp_file)
-                except:
+                except Exception:
                     pass
                 
                 msg = QMessageBox(self)
@@ -3139,7 +3142,8 @@ if ($res.StatusCode -eq 200) {{ $res.Content | Out-File -FilePath $out -Encoding
     
     def auto_start_last_strategy(self):
         """Автоматически запускает последнюю сохраненную стратегию при запуске программы
-        Запускает стратегию только если last_strategy явно указан в конфиге и найден в списке"""
+        Запускает стратегию только если last_strategy явно указан в конфиге и найден в списке.
+        Полоска прогресса при автозапуске не показывается (скрыта по завершении в _on_start_worker_done)."""
         last_strategy = self.settings.get('last_strategy', '')
         
         # Если last_strategy не указан (пустой), не запускаем ничего
@@ -3153,12 +3157,9 @@ if ($res.StatusCode -eq 200) {{ $res.Content | Out-File -FilePath $out -Encoding
             # Стратегия не найдена в списке - не запускаем
             return
         
-        # Стратегия найдена - выбираем и запускаем её
+        # Стратегия найдена - выбираем и запускаем её (без полоски прогресса при автозапуске)
         self.combo_box.setCurrentIndex(index)
-        # Инициализация полоски прогресса для первого запуска (автозапуск без кнопки)
-        if last_strategy.lower() != 'service':
-            self._show_menu_progress_bar()
-        # Запускаем стратегию асинхронно (заголовок обновятся в _on_start_worker_done)
+        self._is_auto_start = True  # start_bat_file не покажет прогресс; _on_start_worker_done скроет и сбросит флаг
         if not self.is_running:
             self.start_bat_file()
     
@@ -3249,6 +3250,7 @@ if ($res.StatusCode -eq 200) {{ $res.Content | Out-File -FilePath $out -Encoding
         
         # Проверяем, что стратегия выбрана
         if not current_strategy or current_strategy in [tr('msg_no_bat_files', lang), tr('msg_winws_not_found', lang)]:
+            self._is_auto_start = False
             msg = QMessageBox(self)
             msg.setWindowTitle(tr('msg_error', lang))
             msg.setText(tr('msg_no_strategy_selected', lang))
@@ -3266,6 +3268,7 @@ if ($res.StatusCode -eq 200) {{ $res.Content | Out-File -FilePath $out -Encoding
             bat_path_real = os.path.realpath(bat_path)
             winws_folder_real = os.path.realpath(winws_folder)
             if not bat_path_real.startswith(winws_folder_real + os.sep) and bat_path_real != winws_folder_real:
+                self._is_auto_start = False
                 msg = QMessageBox(self)
                 msg.setWindowTitle(tr('msg_error', lang))
                 msg.setText(tr('msg_bat_path_not_allowed', lang))
@@ -3282,6 +3285,7 @@ if ($res.StatusCode -eq 200) {{ $res.Content | Out-File -FilePath $out -Encoding
                 if f.endswith('.bat') and f != 'service.bat' and os.path.isfile(os.path.join(winws_folder, f)):
                     allowed.add(f[:-4])
         if current_strategy not in allowed:
+            self._is_auto_start = False
             msg = QMessageBox(self)
             msg.setWindowTitle(tr('msg_error', lang))
             msg.setText(tr('msg_bat_not_in_list', lang).format(current_strategy))
@@ -3290,6 +3294,7 @@ if ($res.StatusCode -eq 200) {{ $res.Content | Out-File -FilePath $out -Encoding
             return
         
         if not os.path.exists(bat_path):
+            self._is_auto_start = False
             msg = QMessageBox(self)
             msg.setWindowTitle(tr('msg_error', lang))
             msg.setText(tr('msg_file_not_found', lang).format(bat_filename, bat_path))
@@ -3301,12 +3306,13 @@ if ($res.StatusCode -eq 200) {{ $res.Content | Out-File -FilePath $out -Encoding
         bat_dir = os.path.dirname(bat_path_abs)
         is_service_file = bat_filename.lower().startswith('service')
 
-        # Показываем полоску прогресса до появления winws.exe (и при ручном запуске, и при автозапуске)
-        if not is_service_file:
+        # Показываем полоску прогресса только при ручном запуске (не при автозапуске стратегии)
+        if not is_service_file and not getattr(self, '_is_auto_start', False):
             self._show_menu_progress_bar()
 
         # Запуск в фоне: UI не замирает
         if self._start_worker is not None and self._start_worker.isRunning():
+            self._is_auto_start = False
             return
         self._start_worker = _StartWorker(self, bat_path_abs, bat_dir, os.name == 'nt')
         self._start_worker.done_signal.connect(
@@ -3325,6 +3331,7 @@ if ($res.StatusCode -eq 200) {{ $res.Content | Out-File -FilePath $out -Encoding
         is_service_file = bat_filename.lower().startswith('service')
         if not success:
             self.is_running = False
+            self._is_auto_start = False
             self._hide_menu_progress_bar()
             self._sync_run_state_ui()
             msg = QMessageBox(self)
@@ -3352,6 +3359,10 @@ if ($res.StatusCode -eq 200) {{ $res.Content | Out-File -FilePath $out -Encoding
             self.settings['last_strategy'] = current_strategy
         else:
             self.running_strategy = None
+        # При автозапуске прогресс не показывали — убедимся, что полоска скрыта и флаг сброшен
+        if getattr(self, '_is_auto_start', False):
+            self._is_auto_start = False
+            self._hide_menu_progress_bar()
 
     def _handle_auto_restart_apps(self):
         """Перезапуск указанных в настройках приложений при запуске стратегии.

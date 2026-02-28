@@ -90,7 +90,6 @@ class ContextTextEdit(QTextEdit):
     def contextMenuEvent(self, event):
         menu = StyleMenu()
         lang = ConfigManager().load_settings().get('language', 'ru')
-        lang = ConfigManager().load_settings().get('language', 'ru')
 
         # Undo / Redo
         act_undo = QAction(tr('editor_undo', lang), self)
@@ -157,6 +156,7 @@ class ContextPlainTextEdit(QPlainTextEdit):
 
     def contextMenuEvent(self, event):
         menu = StyleMenu()
+        lang = ConfigManager().load_settings().get('language', 'ru')
 
         act_undo = QAction(tr('editor_undo', lang), self)
         act_undo.setShortcut(QKeySequence.StandardKey.Undo)

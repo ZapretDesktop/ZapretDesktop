@@ -5,6 +5,7 @@ import traceback
 from PyQt6.QtWidgets import *
 from PyQt6.QtGui import *
 from PyQt6.QtCore import *
+from PyQt6.QtNetwork import QLocalServer, QLocalSocket
 from src.ui.main_window import MainWindow
 from src.core.path_utils import get_resource_path, get_config_path
 from src.core.translator import tr
@@ -18,8 +19,31 @@ def is_admin():
     """Проверяет, запущена ли программа от имени администратора"""
     try:
         return ctypes.windll.shell32.IsUserAnAdmin()
-    except:
+    except Exception:
         return False
+
+
+def _check_single_instance():
+    """Проверка одного экземпляра. Возвращает (exit_this_process, shared_memory_to_keep).
+    Если exit_this_process True — второй экземпляр, нужно подключиться к первому, показать окно и выйти.
+    Иначе — первый экземпляр; shared_memory_to_keep нужно хранить до конца работы приложения."""
+    from PyQt6.QtCore import QSharedMemory
+    shared = QSharedMemory("ZapretDesktop_SingleInstance")
+    if shared.create(1):
+        return (False, shared)  # первый экземпляр — держим shared, чтобы сегмент не освободился
+    if shared.attach():
+        # второй экземпляр — просим первый показать окно
+        sock = QLocalSocket()
+        sock.connectToServer("ZapretDesktop_Show", QLocalSocket.OpenModeFlag.ReadWrite)
+        if sock.waitForConnected(1500):
+            sock.write(b"show")
+            sock.flush()
+            sock.disconnectFromServer()
+            if sock.state() != QLocalSocket.LocalSocketState.UnconnectedState:
+                sock.waitForDisconnected(500)
+        return (True, None)
+    shared.create(1)  # предыдущий процесс завершился — занимаем снова
+    return (False, shared)
 
 
 def run_as_admin():
@@ -585,6 +609,12 @@ def main():
     app.setQuitOnLastWindowClosed(False)
     app.setFont(QFont("Segoe UI", 9))
 
+    # Один экземпляр: при повторном запуске поднимаем существующее окно и выходим
+    exit_process, single_instance_shared = _check_single_instance()
+    if exit_process:
+        sys.exit(0)
+    # single_instance_shared держим до конца работы приложения
+
     config = ConfigManager()
     settings = config.load_settings()
     if not settings.get('first_run_done', True):
@@ -598,6 +628,26 @@ def main():
     window = MainWindow()
     from src.core.window_styles import apply_window_style
     apply_window_style(window)
+
+    # Локальный сервер: второй экземпляр подключается и просит показать окно
+    single_instance_server = QLocalServer()
+    def on_show_request():
+        conn = single_instance_server.nextPendingConnection()
+        if conn:
+            conn.disconnectFromServer()
+            if conn.state() != QLocalSocket.LocalSocketState.UnconnectedState:
+                conn.waitForDisconnected(300)
+        if window.isMinimized() or not window.isVisible():
+            window.show()
+            window.raise_()
+            window.activateWindow()
+        else:
+            window.raise_()
+            window.activateWindow()
+    single_instance_server.newConnection.connect(on_show_request)
+    single_instance_server.listen("ZapretDesktop_Show")
+    # single_instance_server держим до конца работы
+
     sys.exit(app.exec())
 
 

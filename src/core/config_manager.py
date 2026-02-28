@@ -33,7 +33,7 @@ class ConfigManager:
             'close_winws_on_exit': True,
             'start_minimized': False,
             'auto_start_last_strategy': False,
-            'add_b_flag_on_update': False,
+            'add_b_flag_on_update': True,
             'last_strategy': '',
             'auto_restart_strategy': False,
             'game_filter_enabled': False,
@@ -42,6 +42,7 @@ class ConfigManager:
             'winws_path': '',  # Путь к папке winws; пусто = рядом с программой
             'auto_restart_apps': [],  # Список имён процессов для автоперезапуска (discord.exe и т.п.)
             'zapret_repo': 'Flowseal/zapret-discord-youtube',  # Репозиторий zapret по умолчанию
+            'remove_check_updates': False,  # Удалять проверку обновлений zapret из стратегий
         }
         self.default_config = {
             'app': self.default_settings.copy(),
