@@ -1,0 +1,1 @@
+certutil -hashfile "dist\ZapretDeskop.exe" MD5
