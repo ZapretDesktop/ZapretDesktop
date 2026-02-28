@@ -33,7 +33,7 @@ class SystemTray(QSystemTrayIcon):
         
         self.setIcon(icon)
         # Заголовок при наведении курсора на иконку в трее
-        self.setToolTip("ZapretDeskop")
+        self.setToolTip("ZapretDesktop")
         
         # Создаем контекстное меню
         self.menu = StyleMenu()

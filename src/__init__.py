@@ -1,1 +1,1 @@
-# ZapretDeskop source package
+# ZapretDesktop source package

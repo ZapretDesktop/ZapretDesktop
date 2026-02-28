@@ -2234,7 +2234,7 @@ class UnifiedEditorWindow(StandardDialog):
         QMessageBox.about(
             self,
             tr('editor_about', self.language),
-            f"ZapretDeskop Editor\n\n{tr('editor_window_title', self.language)}"
+            f"ZapretDesktop Editor\n\n{tr('editor_window_title', self.language)}"
         )
 
     def closeEvent(self, event):

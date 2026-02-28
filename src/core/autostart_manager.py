@@ -11,14 +11,14 @@ import subprocess
 
 
 class AutostartManager:
-    """Управление автозапуском ZapretDeskop в Windows.
+    """Управление автозапуском ZapretDesktop в Windows.
 
     Создаёт задачу в Планировщике заданий с правами администратора (Run with highest privileges).
     При входе в Windows программа запускается автоматически без запроса UAC.
     Для создания задачи приложение должно быть запущено с правами администратора.
     """
 
-    def __init__(self, app_name="ZapretDeskop"):
+    def __init__(self, app_name="ZapretDesktop"):
         self.app_name = app_name
         self.task_name = f"\\{app_name}"
 

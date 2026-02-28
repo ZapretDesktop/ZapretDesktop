@@ -1,8 +1,8 @@
 # Contributor Covenant Code of Conduct
 
-## О проекте ZapretDeskop
+## О проекте ZapretDesktop
 
-ZapretDeskop — настольное приложение для Windows, обеспечивающее управление решениями обхода DPI на базе zapret/Flowseal. Данный код поведения распространяется на участие в репозитории, обсуждения в Issues и Pull Requests, а также на любое взаимодействие от имени сообщества ZapretDeskop.
+ZapretDesktop — настольное приложение для Windows, обеспечивающее управление решениями обхода DPI на базе zapret/Flowseal. Данный код поведения распространяется на участие в репозитории, обсуждения в Issues и Pull Requests, а также на любое взаимодействие от имени сообщества ZapretDesktop.
 
 ---
 
@@ -66,7 +66,7 @@ representative at an online or offline event.
 
 Instances of abusive, harassing, or otherwise unacceptable behavior may be
 reported to the community leaders responsible for enforcement at
-**ZapretDeskop@proton.me**.
+**ZapretDesktop@proton.me**.
 All complaints will be reviewed and investigated promptly and fairly.
 
 All community leaders are obligated to respect the privacy and security of the

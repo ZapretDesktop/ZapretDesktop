@@ -1,8 +1,8 @@
-# ZapretDeskop
+# ZapretDesktop
 
 ## 1. Обзор продукта
 
-ZapretDeskop — приложение для Windows, обеспечивающее централизованное управление решениями обхода глубокой инспекции пакетов (DPI) на базе zapret/Flowseal. Продукт предоставляет единую точку контроля над стратегиями перехвата трафика, диагностикой сетевой среды и поддержкой актуальности компонентов.
+ZapretDesktop — приложение для Windows, обеспечивающее централизованное управление решениями обхода глубокой инспекции пакетов (DPI) на базе zapret/Flowseal. Продукт предоставляет единую точку контроля над стратегиями перехвата трафика, диагностикой сетевой среды и поддержкой актуальности компонентов.
 
 **Версия:** 1.6.0
 **Целевая платформа:** Windows 10/11 (x64)  
@@ -26,7 +26,7 @@ ZapretDeskop — приложение для Windows, обеспечивающе
 ### 2.2. Структура проекта
 
 ```
-ZapretDeskop/
+ZapretDesktop/
 ├── main.py                    # Точка входа, проверка прав, инициализация
 ├── build.bat                  # Скрипт сборки (PyInstaller)
 ├── requirements.txt
@@ -38,7 +38,7 @@ ZapretDeskop/
 │   │   ├── embedded_assets.py     # Встроенные иконки
 │   │   ├── embedded_style.py      # Стиль интерфейса
 │   │   ├── autostart_manager.py   # Автозапуск с Windows
-│   │   ├── app_updater.py         # Обновление ZapretDeskop
+│   │   ├── app_updater.py         # Обновление ZapretDesktop
 │   │   ├── zapret_updater.py      # Обновление zapret/Flowseal и ZIP-дополнений
 │   │   ├── winws_manager.py       # Управление списками, фильтрами, IPSet
 │   │   ├── bat_generator.py       # Генерация .bat-стратегий
@@ -86,7 +86,7 @@ ZapretDeskop/
 
 ### 2.3. Хранение конфигурации
 
-Конфигурация хранится в `%APPDATA%\Roaming\ZapretDeskop\config.json`. Структура:
+Конфигурация хранится в `%APPDATA%\Roaming\ZapretDesktop\config.json`. Структура:
 
 - **app** — настройки приложения (язык, трей, пути, фильтры, автозапуск)
 - **zapret_version** — версия zapret/Flowseal
@@ -182,7 +182,7 @@ ZapretDeskop/
 
 ### 3.8. Обновления
 
-- **ZapretDeskop** — проверка и установка обновлений приложения
+- **ZapretDesktop** — проверка и установка обновлений приложения
 - **zapret (настраиваемый GitHub‑репозиторий)** — обновление стратегий из выбранного репозитория (по умолчанию `Flowseal/zapret-discord-youtube`) с резервной копией папки winws
 - **Дополнения (ZIP‑пакеты)** — развёртывание архивов с дополнительными стратегиями/списками/бинарниками через окно «Дополнения» с безопасным слиянием в существующую winws и выбором режима установки (полная, только lists, только strategies, только bin)
 - **Ручное обновление** — установка основной поставки из локального ZIP-архива
@@ -274,8 +274,8 @@ ZapretDeskop/
 ### 5.1. Готовый исполняемый файл
 
 1. Распакуйте архив в папку
-2. Убедитесь, что папка `winws` находится рядом с `ZapretDeskop.exe`
-3. Запустите `ZapretDeskop.exe` от имени администратора
+2. Убедитесь, что папка `winws` находится рядом с `ZapretDesktop.exe`
+3. Запустите `ZapretDesktop.exe` от имени администратора
 
 ### 5.2. Сборка из исходников
 
@@ -285,10 +285,10 @@ pip install -r requirements.txt
 pip install pyinstaller
 
 # Сборка (build.bat)
-pyinstaller --noconfirm --onefile --windowed --name ZapretDeskop --icon icon.ico ^
+pyinstaller --noconfirm --onefile --windowed --name ZapretDesktop --icon icon.ico ^
   --hidden-import pywinstyles --hidden-import PyQt6.QtSvg --noupx ZapretDesktop.py
 
-# Результат: dist\ZapretDeskop.exe
+# Результат: dist\ZapretDesktop.exe
 ```
 
 ### 5.3. Запуск в режиме разработки
@@ -303,7 +303,7 @@ python ZapretDesktop.py
 
 ## 6. Ссылки
 
-- **ZapretDeskop:** репозиторий приложения (см. меню «Справка»)
+- **ZapretDesktop:** репозиторий приложения (см. меню «Справка»)
 - **Flowseal zapret:** репозиторий zapret (см. меню «Справка»)
 - **OONI:** данные для генерации списков по странам
 
@@ -311,8 +311,8 @@ python ZapretDesktop.py
 
 ## 7. Контакты
 
-**ZapretDeskop E-mail**  
-E-mail: ZapretDeskop@proton.me
+**ZapretDesktop E-mail**  
+E-mail: ZapretDesktop@proton.me
 
 ---
 

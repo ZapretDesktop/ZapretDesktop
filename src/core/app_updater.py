@@ -1,5 +1,5 @@
 """
-Класс для проверки и обновления самой программы ZapretDeskop.exe
+Класс для проверки и обновления самой программы ZapretDesktop.exe
 """
 import os
 import requests
@@ -12,9 +12,9 @@ from .path_utils import get_base_path
 
 
 class AppUpdater:
-    """Класс для проверки и обновления программы ZapretDeskop.exe"""
+    """Класс для проверки и обновления программы ZapretDesktop.exe"""
     
-    GITHUB_REPO = "ZapretDeskop/ZapretDeskop"
+    GITHUB_REPO = "ZapretDesktop/ZapretDesktop"
     GITHUB_API_URL = f"https://api.github.com/repos/{GITHUB_REPO}/releases/latest"
     
     def __init__(self):
@@ -46,7 +46,7 @@ class AppUpdater:
             # Ищем exe файл для скачивания
             for asset in release_data.get('assets', []):
                 asset_name = asset.get('name', '').lower()
-                if asset_name.endswith('.exe') and 'ZapretDeskop' in asset_name:
+                if asset_name.endswith('.exe') and 'ZapretDesktop' in asset_name:
                     download_url = asset.get('browser_download_url')
                     break
             
@@ -111,7 +111,7 @@ class AppUpdater:
             temp_dir = os.path.join(self.base_path, 'temp_update')
             os.makedirs(temp_dir, exist_ok=True)
             
-            exe_path = os.path.join(temp_dir, 'ZapretDeskop_new.exe')
+            exe_path = os.path.join(temp_dir, 'ZapretDesktop_new.exe')
             total_size = int(response.headers.get('content-length', 0))
             downloaded = 0
             
@@ -135,7 +135,7 @@ class AppUpdater:
             
             # Если программа запущена не из exe файла (например, из Python), используем базовый путь
             if not current_exe.endswith('.exe'):
-                current_exe = os.path.join(self.base_path, 'ZapretDeskop.exe')
+                current_exe = os.path.join(self.base_path, 'ZapretDesktop.exe')
             
             # Определяем имя exe файла для taskkill
             exe_name = os.path.basename(current_exe)

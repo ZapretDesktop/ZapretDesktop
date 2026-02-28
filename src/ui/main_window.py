@@ -93,11 +93,11 @@ class MainWindow(StandardMainWindow):
     update_found_signal = pyqtSignal(str)
 
     def __init__(self):
-        super().__init__(title="ZapretDeskop", width=640, height=480, icon=get_app_icon(), theme="dark")
+        super().__init__(title="ZapretDesktop", width=640, height=480, icon=get_app_icon(), theme="dark")
         self.is_running = False
         self.bat_process = None  # Процесс запущенного .bat файла
         self.running_strategy = None  # Название запущенной стратегии для перезапуска
-        # True если winws был запущен из этой сессии ZapretDeskop (для отличия от "внешнего" запуска)
+        # True если winws был запущен из этой сессии ZapretDesktop (для отличия от "внешнего" запуска)
         self._started_winws_this_session = False
         self.is_restarting = False  # Флаг для предотвращения множественных перезапусков
         self.user_stopped = False  # Флаг явной остановки пользователем (чтобы не запускать автоперезапуск)
@@ -270,7 +270,7 @@ class MainWindow(StandardMainWindow):
 
         # Кликабельный e-mail (mailto)
         self.contact_label = QLabel(
-            '<a href="mailto:ZapretDeskop@proton.me">ZapretDeskop@proton.me</a>'
+            '<a href="mailto:ZapretDesktop@proton.me">ZapretDesktop@proton.me</a>'
         )
         self.contact_label.setAlignment(Qt.AlignmentFlag.AlignCenter)
         self.contact_label.setTextFormat(Qt.TextFormat.RichText)
@@ -409,7 +409,7 @@ class MainWindow(StandardMainWindow):
         # Меню "Обновление"
         self.update_menu = StyleMenu(self.menubar)
         
-        # Проверить наличие обновлений программы ZapretDeskop
+        # Проверить наличие обновлений программы ZapretDesktop
         self.check_app_updates_action = QAction('', self)
         self.check_app_updates_action.setShortcut(QKeySequence("Ctrl+F5"))
         self.check_app_updates_action.triggered.connect(self.check_app_updates)
@@ -829,7 +829,7 @@ class MainWindow(StandardMainWindow):
         QApplication.quit()
     
     def check_app_updates(self):
-        """Проверяет наличие обновлений программы ZapretDeskop"""
+        """Проверяет наличие обновлений программы ZapretDesktop"""
         lang = self.settings.get('language', 'ru')
         
         # Показываем окно проверки в стиле VS
@@ -2562,8 +2562,8 @@ if ($res.StatusCode -eq 200) {{ $res.Content | Out-File -FilePath $out -Encoding
             self.config.set_setting('ipset_filter_mode', ipset_mode)
 
     def _update_window_title_with_strategy(self):
-        """Обновляет заголовок окна вида 'ZapretDeskop — <стратегия>' если стратегия запущена."""
-        base_title = "ZapretDeskop"
+        """Обновляет заголовок окна вида 'ZapretDesktop — <стратегия>' если стратегия запущена."""
+        base_title = "ZapretDesktop"
         if self.is_running and self.running_strategy:
             self.setWindowTitle(f"{base_title} — {self.running_strategy}")
         else:
@@ -2683,10 +2683,10 @@ if ($res.StatusCode -eq 200) {{ $res.Content | Out-File -FilePath $out -Encoding
         version = VERSION
         md5 = MD5
         # Ссылка на релиз текущей версии
-        release_url = f"https://github.com/ZapretDeskop/ZapretDeskop/releases/tag/{version}"
+        release_url = f"https://github.com/ZapretDesktop/ZapretDesktop/releases/tag/{version}"
         if self.latest_available_version and self.latest_available_version != version:
             latest = self.latest_available_version
-            latest_release_url = f"https://github.com/ZapretDeskop/ZapretDeskop/releases/tag/{latest}"
+            latest_release_url = f"https://github.com/ZapretDesktop/ZapretDesktop/releases/tag/{latest}"
             version_text = (
                 f'<a href="{release_url}">{version}</a> '
                 f'(→<a href="{latest_release_url}"><span style="color:#0b6b2a;">{latest}</span></a>)'
@@ -2694,7 +2694,7 @@ if ($res.StatusCode -eq 200) {{ $res.Content | Out-File -FilePath $out -Encoding
         else:
             version_text = f'<a href="{release_url}">{version}</a>'
         # Если MD5 не является тем же самым e-mail, можно добавить его отдельной строкой
-        if md5 and md5 != "ZapretDeskop@proton.me":
+        if md5 and md5 != "ZapretDesktop@proton.me":
             version_text += f"<br>{md5}"
         self.version_label.setText(version_text)
 
@@ -2708,7 +2708,7 @@ if ($res.StatusCode -eq 200) {{ $res.Content | Out-File -FilePath $out -Encoding
         if not action:
             return
         version = VERSION
-        release_url = f"https://github.com/ZapretDeskop/ZapretDeskop/releases/tag/{version}"
+        release_url = f"https://github.com/ZapretDesktop/ZapretDesktop/releases/tag/{version}"
         if action == open_action:
             QDesktopServices.openUrl(QUrl(release_url))
         elif action == copy_action:
@@ -2723,7 +2723,7 @@ if ($res.StatusCode -eq 200) {{ $res.Content | Out-File -FilePath $out -Encoding
         action = menu.exec(self.contact_label.mapToGlobal(pos))
         if not action:
             return
-        email = "ZapretDeskop@proton.me"
+        email = "ZapretDesktop@proton.me"
         if action == send_action:
             QDesktopServices.openUrl(QUrl(f"mailto:{email}"))
         elif action == copy_action:
@@ -2731,7 +2731,7 @@ if ($res.StatusCode -eq 200) {{ $res.Content | Out-File -FilePath $out -Encoding
     
     def open_github(self):
         """Открывает страницу GitHub проекта"""
-        url = QUrl('https://github.com/ZapretDeskop/ZapretDeskop')
+        url = QUrl('https://github.com/ZapretDesktop/ZapretDesktop')
         QDesktopServices.openUrl(url)
     
     def open_github_zapret(self):
@@ -2942,7 +2942,7 @@ if ($res.StatusCode -eq 200) {{ $res.Content | Out-File -FilePath $out -Encoding
         """
         Обновляет отображаемые тексты в ComboBox:
         - Для всех стратегий показывает [version] (версия берётся из service.bat в нашей winws)
-        - Если winws запущен "внешне" (не этой сессией ZapretDeskop) — для активной стратегии показывает [version | pid]
+        - Если winws запущен "внешне" (не этой сессией ZapretDesktop) — для активной стратегии показывает [version | pid]
         """
         ext_key = "__external_winws__"
         # Базовая версия наших стратегий (из нашей winws), показывается всегда
@@ -2974,7 +2974,7 @@ if ($res.StatusCode -eq 200) {{ $res.Content | Out-File -FilePath $out -Encoding
                 pass
             return
 
-        # Для стратегий, запущенных из текущей сессии ZapretDeskop, всегда используем базовую
+        # Для стратегий, запущенных из текущей сессии ZapretDesktop, всегда используем базовую
         # версию из нашего winws (service.bat). Для внешнего winws пытаемся определить
         # версию и pid по запущенному процессу.
         external = not getattr(self, "_started_winws_this_session", False)
@@ -3395,7 +3395,7 @@ if ($res.StatusCode -eq 200) {{ $res.Content | Out-File -FilePath $out -Encoding
             try:
                 if os.name == 'nt':
                     # На Windows запускаем через ShellExecute (os.startfile),
-                    # чтобы процесс не был дочерним для ZapretDeskop и не зависел от него.
+                    # чтобы процесс не был дочерним для ZapretDesktop и не зависел от него.
                     os.startfile(exe_path)
                 else:
                     # На других платформах отделяем процесс с новой сессией
@@ -3554,7 +3554,7 @@ if ($res.StatusCode -eq 200) {{ $res.Content | Out-File -FilePath $out -Encoding
         if winws_running and not self.is_running:
             # Процесс запущен, но кнопка показывает "Запустить" (программа перезапущена)
             self.is_running = True
-            # winws появился без запуска из текущей сессии ZapretDeskop
+            # winws появился без запуска из текущей сессии ZapretDesktop
             self._started_winws_this_session = False
             detected = self._detect_running_strategy()
             if detected:

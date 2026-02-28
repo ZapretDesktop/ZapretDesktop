@@ -2,7 +2,7 @@
 setlocal EnableDelayedExpansion
 
 echo ========================================
-echo   ZapretDeskop - Build
+echo   ZapretDesktop - Build
 echo ========================================
 echo.
 
@@ -27,7 +27,7 @@ if exist "dist" rmdir /s /q dist
 
 echo.
 echo [3/4] Building with PyInstaller...
-pyinstaller --noconfirm --onefile --windowed --name ZapretDeskop --icon "icon.ico" --hidden-import pywinstyles --hidden-import PyQt6.QtSvg --noupx ZapretDeskop.py
+pyinstaller --noconfirm --onefile --windowed --name ZapretDesktop --icon "icon.ico" --hidden-import pywinstyles --hidden-import PyQt6.QtSvg --noupx ZapretDesktop.py
 
 if errorlevel 1 (
     echo.
@@ -48,7 +48,7 @@ if exist "winws" (
 echo.
 echo ========================================
 echo   Build completed successfully!
-echo   Output: dist\ZapretDeskop.exe
+echo   Output: dist\ZapretDesktop.exe
 echo ========================================
 echo.
 pause

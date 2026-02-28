@@ -1,1 +1,1 @@
-certutil -hashfile "dist\ZapretDeskop.exe" MD5
+certutil -hashfile "dist\ZapretDesktop.exe" MD5

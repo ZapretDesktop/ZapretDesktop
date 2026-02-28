@@ -6,12 +6,12 @@ from .path_utils import get_base_path, get_config_path as _get_config_path
 
 VERSION = "1.6.0"
 ZAPRET = "1.9.7"
-MD5 = "ZapretDeskop@proton.me"
+MD5 = "ZapretDesktop@proton.me"
 
 class ConfigManager:
     def __init__(self, config_path=None):
         if config_path is None:
-            config_path = _get_config_path()  # AppData/ZapretDeskop/config.json
+            config_path = _get_config_path()  # AppData/ZapretDesktop/config.json
         # Если путь относительный, делаем его абсолютным относительно папки настроек (AppData)
         if not os.path.isabs(config_path):
             config_dir = os.path.dirname(_get_config_path())

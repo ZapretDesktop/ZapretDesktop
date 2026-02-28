@@ -62,8 +62,8 @@ def get_resource_path(relative_path):
 
 def get_appdata_config_dir():
     """
-    Возвращает путь к папке настроек приложения в AppData (ZapretDeskop).
-    На Windows: C:\\Users\\<user>\\AppData\\Roaming\\ZapretDeskop
+    Возвращает путь к папке настроек приложения в AppData (ZapretDesktop).
+    На Windows: C:\\Users\\<user>\\AppData\\Roaming\\ZapretDesktop
     Работает надёжно даже при автозапуске через планировщик задач.
     """
     appdata = None
@@ -100,16 +100,16 @@ def get_appdata_config_dir():
     if not appdata:
         appdata = os.path.join('C:', os.sep, 'Users', 'Default', 'AppData', 'Roaming')
     
-    return os.path.join(appdata, 'ZapretDeskop')
+    return os.path.join(appdata, 'ZapretDesktop')
 
 
 def get_config_path(relative_path="config.json"):
     """
     Возвращает путь к файлу конфигурации.
-    Настройки хранятся в папке AppData\\ZapretDeskop (не рядом с исполняемым файлом).
+    Настройки хранятся в папке AppData\\ZapretDesktop (не рядом с исполняемым файлом).
     
     Args:
-        relative_path: Имя файла или относительный путь внутри папки ZapretDeskop
+        relative_path: Имя файла или относительный путь внутри папки ZapretDesktop
     
     Returns:
         Абсолютный путь к файлу конфигурации

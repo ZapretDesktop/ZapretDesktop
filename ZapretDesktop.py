@@ -89,8 +89,8 @@ def main():
     
     app = QApplication(sys.argv)
     app.setStyle(EmbeddedStyle('Fusion'))
-    app.setApplicationName('ZapretDeskop')
-    app.setOrganizationName('ZapretDeskop')
+    app.setApplicationName('ZapretDesktop')
+    app.setOrganizationName('ZapretDesktop')
 
     from PyQt6.QtGui import QPalette, QColor
     
@@ -578,8 +578,8 @@ def main():
     }
 '''
     app.setStyleSheet(_style_sheet)
-    app.setOrganizationName('ZapretDeskop')
-    app.setApplicationName('ZapretDeskop')
+    app.setOrganizationName('ZapretDesktop')
+    app.setApplicationName('ZapretDesktop')
     from src.widgets.custom_scrollbar import ScrollbarStyler
     ScrollbarStyler.apply_scrollbar_style(app, fade_timeout=1000)
     app.setQuitOnLastWindowClosed(False)
@@ -610,8 +610,8 @@ def show_critical_error(parent, error_msg, detailed_text):
     msg.setText("<b>Произошла критическая ошибка!</b>")
     msg.setInformativeText(
         "Приложение столкнулось с непредвиденной ошибкой и будет закрыто.\n\n"
-        "Попробуйте удалить файлы .json из папки %appdata%\\ZapretDeskop\n\n"
-        "ZapretDeskop@proton.me\n\n"
+        "Попробуйте удалить файлы .json из папки %appdata%\\ZapretDesktop\n\n"
+        "ZapretDesktop@proton.me\n\n"
         f"Краткое описание: {str(error_msg)}"
     )
     msg.setDetailedText(f"Детали ошибки:\n{detailed_text}")

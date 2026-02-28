@@ -80,7 +80,7 @@ TRANSLATIONS = {
         'settings_lang_russian': 'Русский',
         'settings_lang_english': 'English',
         'first_run_title': 'Первая настройка',
-        'first_run_welcome': 'Добро пожаловать в ZapretDeskop. Выберите основные параметры — их можно изменить позже в настройках.',
+        'first_run_welcome': 'Добро пожаловать в ZapretDesktop. Выберите основные параметры — их можно изменить позже в настройках.',
         'first_run_language': 'Язык',
         'first_run_options': 'Основные опции',
         'first_run_continue': 'Продолжить',
@@ -273,7 +273,7 @@ TRANSLATIONS = {
         'best_strategies_col_ping_ok': 'Ping OK',
         
         # Справка
-        'help_open_github': 'Открыть ZapretDeskop Github',
+        'help_open_github': 'Открыть ZapretDesktop Github',
         'help_open_github_zapret': 'Открыть {owner} zapret Github',
         
         # Права администратора
@@ -289,7 +289,7 @@ TRANSLATIONS = {
         'update_current_version': 'Установлена актуальная версия: {0}',
         'update_available_title': 'Обновление доступно',
         'update_available_text': 'Найдена новая версия: {0}\nТекущая версия: {1}\n\nХотите обновить стратегии zapret?',
-        'update_available_text_app': 'Найдена новая версия программы: {0}\nТекущая версия: {1}\n\nХотите обновить программу ZapretDeskop?',
+        'update_available_text_app': 'Найдена новая версия программы: {0}\nТекущая версия: {1}\n\nХотите обновить программу ZapretDesktop?',
         'update_error_title': 'Ошибка',
         'update_error_url_not_found': 'URL для скачивания не найден',
         'update_stopping_winws': 'Остановка winws',
@@ -300,7 +300,7 @@ TRANSLATIONS = {
         'update_installing': 'Установка обновления...',
         'update_completed': 'Обновление завершено',
         'update_completed_text': 'Стратегии zapret успешно обновлены до версии {0}',
-        'update_completed_text_app': 'Программа ZapretDeskop успешно обновлена до версии {0}',
+        'update_completed_text_app': 'Программа ZapretDesktop успешно обновлена до версии {0}',
         'update_restart_required': 'Программа будет перезапущена автоматически',
         'update_error_title': 'Ошибка обновления',
         'update_error_text': 'Ошибка при обновлении: {0}',
@@ -591,7 +591,7 @@ TRANSLATIONS = {
         'settings_lang_russian': 'Russian',
         'settings_lang_english': 'English',
         'first_run_title': 'First-time setup',
-        'first_run_welcome': 'Welcome to ZapretDeskop. Choose basic options — you can change them later in Settings.',
+        'first_run_welcome': 'Welcome to ZapretDesktop. Choose basic options — you can change them later in Settings.',
         'first_run_language': 'Language',
         'first_run_options': 'Basic options',
         'first_run_continue': 'Continue',
@@ -785,7 +785,7 @@ TRANSLATIONS = {
         'best_strategies_col_ping_ok': 'Ping OK',
         
         # Help
-        'help_open_github': 'Open ZapretDeskop Github',
+        'help_open_github': 'Open ZapretDesktop Github',
         'help_open_github_zapret': 'Open {owner} zapret Github',
         
         # Admin rights
@@ -801,7 +801,7 @@ TRANSLATIONS = {
         'update_current_version': 'Current version installed: {0}',
         'update_available_title': 'Update available',
         'update_available_text': 'New version found: {0}\nCurrent version: {1}\n\nDo you want to update zapret strategies?',
-        'update_available_text_app': 'New program version found: {0}\nCurrent version: {1}\n\nDo you want to update ZapretDeskop?',
+        'update_available_text_app': 'New program version found: {0}\nCurrent version: {1}\n\nDo you want to update ZapretDesktop?',
         'update_error_title': 'Error',
         'update_error_url_not_found': 'Download URL not found',
         'update_stopping_winws': 'Stopping winws',
@@ -812,7 +812,7 @@ TRANSLATIONS = {
         'update_installing': 'Installing update...',
         'update_completed': 'Update completed',
         'update_completed_text': 'Zapret strategies successfully updated to version {0}',
-        'update_completed_text_app': 'ZapretDeskop successfully updated to version {0}',
+        'update_completed_text_app': 'ZapretDesktop successfully updated to version {0}',
         'update_restart_required': 'The program will restart automatically',
         'update_error_title': 'Update error',
         'update_error_text': 'Error updating: {0}',
