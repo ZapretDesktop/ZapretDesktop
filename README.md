@@ -1,5 +1,6 @@
 # ZapretDesktop
-<img width="642" height="512" alt="image" src="https://github.com/user-attachments/assets/058027c7-25dc-4488-8d8e-b0527b3c3eb9" />
+<img width="642" height="512" alt="image" src="https://github.com/user-attachments/assets/42f0fa08-00cd-4883-80b4-9ad0f7791bfa" />
+
 
 ## 1. Обзор продукта
 
