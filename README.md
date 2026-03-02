@@ -1,6 +1,8 @@
 # ZapretDesktop
 
-<img width="642" height="512" alt="image" src="https://github.com/user-attachments/assets/cfa3edca-cc64-4930-bf25-98c3fd7b7c87" />
+<center><img width="642" height="512" alt="image" src="https://github.com/user-attachments/assets/11ba7f7a-b723-4629-a19b-04ff74922a3e" /></center>
+
+
 
 **ZapretDesktop** — программа для Windows, которая управляет обходом DPI (глубокой инспекции пакетов) на основе zapret/Flowseal. Через один интерфейс вы выбираете стратегию, запускаете её, тестируете, редактируете списки доменов и обновляете компоненты.
 
