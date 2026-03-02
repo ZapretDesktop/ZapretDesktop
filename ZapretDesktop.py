@@ -7,7 +7,7 @@ from PyQt6.QtGui import *
 from PyQt6.QtCore import *
 from PyQt6.QtNetwork import QLocalServer, QLocalSocket
 from src.ui.main_window import MainWindow
-from src.core.path_utils import get_resource_path, get_config_path
+from src.core.path_utils import get_resource_path, get_config_path, get_winws_path
 from src.core.translator import tr
 from src.core.config_manager import ConfigManager
 from src.core.embedded_assets import get_app_icon
@@ -617,13 +617,14 @@ def main():
 
     config = ConfigManager()
     settings = config.load_settings()
-    if not settings.get('first_run_done', True):
-        from src.dialogs.first_run_window import FirstRunWindow
-        first_run = FirstRunWindow(None, config)
-        first_run.exec()
-        if getattr(first_run, 'enable_autostart', False):
-            from src.core.autostart_manager import AutostartManager
-            AutostartManager().enable()
+
+    winws_path = get_winws_path()
+    if not os.path.exists(winws_path):
+        from src.dialogs.winws_setup_dialog import WinwsSetupDialog
+
+        setup_dialog = WinwsSetupDialog(None, config)
+        if setup_dialog.exec() != QDialog.DialogCode.Accepted:
+            sys.exit(0)
 
     window = MainWindow()
     from src.core.window_styles import apply_window_style

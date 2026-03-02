@@ -61,6 +61,10 @@ class TestWindow(StandardDialog):
 
         # Флаг автоскролла (для пункта меню "Вид -> Автоскролл")
         self.auto_scroll_enabled = True
+        # Режим тестирования: 'standard' или 'dpi'
+        self.test_mode = 'standard'
+        # Флаг паузы
+        self.is_paused = False
 
         # Данные по стратегиям для меню "Стратегии"
         self.strategy_items = []  # [{'text': str, 'data': Optional[bat_file]}]
@@ -70,20 +74,33 @@ class TestWindow(StandardDialog):
         self.menu_bar = QMenuBar()
         self.menu_bar.setNativeMenuBar(False)
 
-        # Действие "Запустить/Остановить" (текст меняется по состоянию)
-        self.action_toggle_tests = QAction(tr('button_start', self.language), self)
+        # Кнопка "Запустить" (одна и та же для старта/остановки)
+        self.action_toggle_tests = QAction(tr('test_start_button', self.language), self)
         self.action_toggle_tests.triggered.connect(self.toggle_tests)
-        self.menu_bar.addAction(self.action_toggle_tests)
 
-        # Меню "Стратегии" c кастомным StyleMenu
-        self.strategies_menu = StyleMenu(self)
-        self.strategies_menu.setTitle(tr('test_menu_strategies', self.language))
-        self.menu_bar.addMenu(self.strategies_menu)
+        # Кнопка "Пауза / Продолжить"
+        self.action_pause = QAction(tr('test_menu_pause', self.language), self)
+        self.action_pause.setCheckable(True)
+        self.action_pause.setChecked(False)
+        self.action_pause.toggled.connect(self.toggle_pause)
+
+        # Меню "Режим тестирования"
+        self.mode_menu = StyleMenu(self)
+        self.mode_menu.setTitle(tr('test_menu_mode', self.language))
+        self.mode_standard_action = QAction(tr('test_mode_standard', self.language), self)
+        self.mode_standard_action.setCheckable(True)
+        self.mode_dpi_action = QAction(tr('test_mode_dpi', self.language), self)
+        self.mode_dpi_action.setCheckable(True)
+        self.mode_standard_action.setChecked(True)
+        self.mode_dpi_action.setChecked(False)
+        self.mode_standard_action.triggered.connect(lambda: self.set_test_mode('standard'))
+        self.mode_dpi_action.triggered.connect(lambda: self.set_test_mode('dpi'))
+        self.mode_menu.addAction(self.mode_standard_action)
+        self.mode_menu.addAction(self.mode_dpi_action)
 
         # Меню "Вид" с пунктом "Автоскролл" c кастомным StyleMenu
         self.view_menu = StyleMenu(self)
         self.view_menu.setTitle(tr('test_menu_view', self.language))
-        self.menu_bar.addMenu(self.view_menu)
         self.auto_scroll_action = QAction(tr('test_auto_scroll', self.language), self)
         self.auto_scroll_action.setCheckable(True)
         self.auto_scroll_action.setChecked(True)
@@ -93,7 +110,6 @@ class TestWindow(StandardDialog):
         # Меню "Экспорт" c кастомным StyleMenu
         self.export_menu = StyleMenu(self)
         self.export_menu.setTitle(tr('test_menu_export', self.language))
-        self.menu_bar.addMenu(self.export_menu)
         
         # Подменю "Экспорт результатов тестирования"
         self.export_results_menu = StyleMenu(self)
@@ -132,6 +148,19 @@ class TestWindow(StandardDialog):
         self.export_best_txt = QAction(tr('export_txt', self.language), self)
         self.export_best_txt.triggered.connect(lambda: self.export_table_data(self.best_table, "best_strategies", "txt"))
         self.export_best_menu.addAction(self.export_best_txt)
+
+        # Меню "Стратегии" c кастомным StyleMenu
+        self.strategies_menu = StyleMenu(self)
+        self.strategies_menu.setTitle(tr('test_menu_strategies', self.language))
+
+        # Добавляем элементы в QMenuBar в нужном порядке:
+        # Запустить  Пауза/Продолжить  Режим тестирования  Вид  Экспорт  Стратегии
+        self.menu_bar.addAction(self.action_toggle_tests)
+        self.menu_bar.addAction(self.action_pause)
+        self.menu_bar.addMenu(self.mode_menu)
+        self.menu_bar.addMenu(self.view_menu)
+        self.menu_bar.addMenu(self.export_menu)
+        self.menu_bar.addMenu(self.strategies_menu)
 
         # Добавляем QMenuBar в левую часть кастомного title bar
         if hasattr(self, "title_bar"):
@@ -239,13 +268,15 @@ class TestWindow(StandardDialog):
         # Словарь для хранения статистики по стратегиям
         self.strategy_stats = {}
         
-        # Инициализируем список целей для тестирования
+        # Инициализируем список целей для тестирования (стандартный и для DPI)
         self.init_targets()
         
         # Прогресс бар в стиле VS Code с анимацией
         self.progress = AnimatedProgressBar()
         self.progress.setRange(0, 100)
         self.progress.setValue(0)
+        # Изначально "прячем" прогрессбар через фон
+        self._apply_progressbar_hidden_style()
         layout.addWidget(self.progress)
         
         # Статус - перемещен в заголовок окна
@@ -280,7 +311,13 @@ class TestWindow(StandardDialog):
         
         self.setWindowTitle(tr('test_window_title', self.language))
         
-        
+        # Обновляем текст кнопки запуска/остановки в зависимости от состояния
+        if hasattr(self, "action_toggle_tests"):
+            if self.is_running:
+                self.action_toggle_tests.setText(tr('test_stop_button', self.language))
+            else:
+                self.action_toggle_tests.setText(tr('test_start_button', self.language))
+
         # Обновляем заголовки таблиц
         self.table.setHorizontalHeaderLabels([
             tr('table_col_strategy', self.language),
@@ -302,12 +339,6 @@ class TestWindow(StandardDialog):
         if self.tabs.count() > 2:
             self.tabs.setTabText(2, tr('tab_targets', self.language))
         
-        # Обновляем текст действия запуска/остановки в зависимости от состояния
-        if self.is_running:
-            self.action_toggle_tests.setText(tr('button_stop', self.language))
-        else:
-            self.action_toggle_tests.setText(tr('button_start', self.language))
-        
         # Обновляем меню
         if hasattr(self, "strategies_menu"):
             self.strategies_menu.setTitle(tr('test_menu_strategies', self.language))
@@ -315,6 +346,18 @@ class TestWindow(StandardDialog):
             self.view_menu.setTitle(tr('test_menu_view', self.language))
         if hasattr(self, "auto_scroll_action"):
             self.auto_scroll_action.setText(tr('test_auto_scroll', self.language))
+        if hasattr(self, "action_pause"):
+            # Поддерживаем актуальный текст в зависимости от состояния паузы
+            if getattr(self, "is_paused", False):
+                self.action_pause.setText(tr('test_menu_continue', self.language))
+            else:
+                self.action_pause.setText(tr('test_menu_pause', self.language))
+        if hasattr(self, "mode_menu"):
+            self.mode_menu.setTitle(tr('test_menu_mode', self.language))
+        if hasattr(self, "mode_standard_action"):
+            self.mode_standard_action.setText(tr('test_mode_standard', self.language))
+        if hasattr(self, "mode_dpi_action"):
+            self.mode_dpi_action.setText(tr('test_mode_dpi', self.language))
         if hasattr(self, "export_menu"):
             self.export_menu.setTitle(tr('test_menu_export', self.language))
         if hasattr(self, "export_results_menu"):
@@ -406,7 +449,20 @@ class TestWindow(StandardDialog):
                         continue
                     act.setChecked(act_idx == index)
                     act_idx += 1
-    
+
+    def set_test_mode(self, mode: str):
+        """Устанавливает режим тестирования и обновляет чекбоксы меню."""
+        if mode not in ('standard', 'dpi'):
+            return
+        self.test_mode = mode
+        if hasattr(self, "mode_standard_action") and hasattr(self, "mode_dpi_action"):
+            if mode == 'standard':
+                self.mode_standard_action.setChecked(True)
+                self.mode_dpi_action.setChecked(False)
+            else:
+                self.mode_standard_action.setChecked(False)
+                self.mode_dpi_action.setChecked(True)
+
     def init_targets(self):
         """Инициализирует список целей для тестирования"""
         # Загружаем цели из файла targets.txt, если он существует
@@ -460,6 +516,16 @@ class TestWindow(StandardDialog):
                 {'name': 'Google DNS 8.8.4.4', 'url': None, 'ping_target': '8.8.4.4'},
                 {'name': 'Quad9 DNS 9.9.9.9', 'url': None, 'ping_target': '9.9.9.9'},
             ]
+
+        # Сохраняем стандартный список целей и отдельный набор для DPI‑тестов
+        self.standard_targets = list(self.targets)
+        # DPI checkers: небольшой фиксированный набор TCP/HTTPS целей
+        self.dpi_targets = [
+            {'name': 'Discord Main', 'url': 'https://discord.com', 'ping_target': None},
+            {'name': 'YouTube Web', 'url': 'https://www.youtube.com', 'ping_target': None},
+            {'name': 'Cloudflare Web', 'url': 'https://www.cloudflare.com', 'ping_target': None},
+            {'name': 'Google Main', 'url': 'https://www.google.com', 'ping_target': None},
+        ]
     
     def toggle_tests(self):
         """Переключает состояние тестов: запускает или останавливает"""
@@ -467,11 +533,56 @@ class TestWindow(StandardDialog):
             self.stop_tests()
         else:
             self.start_tests()
+
+    def toggle_pause(self, checked: bool):
+        """Переключает режим паузы во время тестирования."""
+        # Если тесты не запущены — пауза не имеет смысла
+        if not self.is_running:
+            self.is_paused = False
+            if hasattr(self, "action_pause"):
+                self.action_pause.setChecked(False)
+            return
+        self.is_paused = bool(checked)
+        # Меняем текст кнопки между "Пауза" и "Продолжить"
+        if hasattr(self, "action_pause"):
+            if self.is_paused:
+                self.action_pause.setText(tr('test_menu_continue', self.language))
+            else:
+                self.action_pause.setText(tr('test_menu_pause', self.language))
     
     def start_tests(self):
         if self.is_running:
             return
-        
+
+        # Перед запуском тестов проверяем, не запущен ли уже winws.exe
+        winws_running = False
+        try:
+            import psutil
+            for proc in psutil.process_iter(['pid', 'name']):
+                try:
+                    if proc.info['name'] and proc.info['name'].lower() == 'winws.exe':
+                        winws_running = True
+                        break
+                except (psutil.NoSuchProcess, psutil.AccessDenied, psutil.ZombieProcess):
+                    continue
+        except Exception:
+            winws_running = False
+
+        if winws_running:
+            # Спрашиваем пользователя, нужно ли остановить winws перед тестированием
+            msg_box = QMessageBox(self)
+            msg_box.setIcon(QMessageBox.Icon.Question)
+            msg_box.setWindowTitle(tr('update_stopping_winws', self.language))
+            msg_box.setText(tr('update_winws_running', self.language))
+            msg_box.setInformativeText(tr('update_winws_stop_required', self.language))
+            msg_box.setStandardButtons(QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No)
+            msg_box.setDefaultButton(QMessageBox.StandardButton.Yes)
+            reply = msg_box.exec()
+            if reply == QMessageBox.StandardButton.Yes:
+                self.stop_winws()
+            else:
+                return
+
         # Получаем выбранную стратегию из меню
         selected_index = self.current_strategy_index
         
@@ -502,9 +613,21 @@ class TestWindow(StandardDialog):
             return
         
         self.is_running = True
+        self.is_paused = False
+        if hasattr(self, "action_pause"):
+            self.action_pause.setChecked(False)
+            self.action_pause.setText(tr('test_menu_pause', self.language))
+        # Делаем прогрессбар видимым по стилю
+        self._apply_progressbar_visible_style()
         # Меняем текст действия в меню
         if hasattr(self, "action_toggle_tests"):
-            self.action_toggle_tests.setText(tr('button_stop', self.language))
+            self.action_toggle_tests.setText(tr('test_stop_button', self.language))
+        # Выбираем список целей в зависимости от режима
+        if getattr(self, "test_mode", "standard") == "dpi":
+            self.targets = getattr(self, "dpi_targets", self.targets)
+        else:
+            self.targets = getattr(self, "standard_targets", self.targets)
+
         # Прогресс = количество .bat файлов * количество целей
         total_tests = len(bat_files) * len(self.targets)
         self.progress.setRange(0, total_tests)
@@ -522,10 +645,21 @@ class TestWindow(StandardDialog):
     
     def stop_tests(self):
         self.is_running = False
-        # Возвращаем текст меню на "Запустить"
+        self.is_paused = False
+        if hasattr(self, "action_pause"):
+            self.action_pause.setChecked(False)
+            self.action_pause.setText(tr('test_menu_pause', self.language))
+        # Снова «прячем» прогрессбар через фон
+        self._apply_progressbar_hidden_style()
+        # Обновляем заголовок окна
+        try:
+            title_base = tr('test_window_title', self.language)
+        except Exception:
+            title_base = 'Тестирование'
+        self.setWindowTitle(f"{title_base} — {tr('test_status_stopping', self.language)}")
+        # Возвращаем текст кнопки в состояние "Запустить"
         if hasattr(self, "action_toggle_tests"):
-            self.action_toggle_tests.setText(tr('button_start', self.language))
-        self.status_label.setText(tr('test_status_stopping', self.language))
+            self.action_toggle_tests.setText(tr('test_start_button', self.language))
     
     def run_tests(self, bat_files):
         self.test_results = []
@@ -563,10 +697,22 @@ class TestWindow(StandardDialog):
             
             # Ждем инициализации
             import time
-            time.sleep(5)
+            elapsed = 0.0
+            init_delay = 5.0
+            while elapsed < init_delay and self.is_running:
+                # Учитываем паузу во время ожидания
+                while getattr(self, "is_paused", False) and self.is_running:
+                    time.sleep(0.1)
+                time.sleep(0.1)
+                elapsed += 0.1
             
             # Инициализируем статистику для этой стратегии
             strategy_name = os.path.splitext(bat_file)[0]
+            # Уведомляем MainWindow о смене тестируемой стратегии — обновляем combo и title
+            parent = self.parent()
+            if parent is not None and hasattr(parent, "on_test_strategy_changed"):
+                QMetaObject.invokeMethod(parent, "on_test_strategy_changed", Qt.ConnectionType.QueuedConnection,
+                                        Q_ARG(str, strategy_name))
             # Используем прямой доступ к словарю, так как мы в отдельном потоке
             # Но нужно передать данные через сигнал для обновления UI
             strategy_stats = {
@@ -582,6 +728,9 @@ class TestWindow(StandardDialog):
             for target in self.targets:
                 if not self.is_running:
                     break
+                # Пауза между целями при необходимости
+                while getattr(self, "is_paused", False) and self.is_running:
+                    time.sleep(0.1)
                 
                 # Выполняем только HTTP/TLS тесты (без ping)
                 result = self.test_target_http_tls(target)
@@ -824,6 +973,9 @@ class TestWindow(StandardDialog):
             for target_name, target in targets_to_ping:
                 if not self.is_running:
                     break
+                # Пауза между задачами ping
+                while getattr(self, "is_paused", False) and self.is_running:
+                    time.sleep(0.05)
                 future = executor.submit(self.test_target_ping, target)
                 future_to_target[future] = target_name
             
@@ -831,6 +983,8 @@ class TestWindow(StandardDialog):
             for future in as_completed(future_to_target):
                 if not self.is_running:
                     break
+                while getattr(self, "is_paused", False) and self.is_running:
+                    time.sleep(0.05)
                 target_name = future_to_target[future]
                 try:
                     ping_result = future.result()
@@ -842,17 +996,34 @@ class TestWindow(StandardDialog):
     
     def stop_winws(self):
         """Останавливает процесс winws.exe"""
+        # Помечаем в родительском окне, что winws остановлен "вручную",
+        # чтобы main_window не запускал автоперезапуск стратегии.
+        parent = self.parent()
+        if parent is not None and hasattr(parent, "user_stopped"):
+            try:
+                parent.user_stopped = True  # type: ignore[attr-defined]
+            except Exception:
+                pass
+
         try:
             import psutil
             for proc in psutil.process_iter(['pid', 'name']):
-                if proc.info['name'] and proc.info['name'].lower() == 'winws.exe':
-                    proc.kill()
+                try:
+                    if proc.info['name'] and proc.info['name'].lower() == 'winws.exe':
+                        proc.kill()
+                except (psutil.NoSuchProcess, psutil.AccessDenied, psutil.ZombieProcess):
+                    continue
         except Exception:
             pass
     
     @pyqtSlot(str)
     def update_status(self, text):
-        self.status_label.setText(text)
+        # Перемещаем статус в заголовок окна: "Тестирование — <состояние>"
+        try:
+            title_base = tr('test_window_title', self.language)
+        except Exception:
+            title_base = 'Тестирование'
+        self.setWindowTitle(f"{title_base} — {text}")
     
     def on_auto_scroll_changed(self, state):
         """Старый обработчик checkbox (оставлен для совместимости, не используется)."""
@@ -866,6 +1037,39 @@ class TestWindow(StandardDialog):
         """Выполняет скролл вниз только если автоскролл включен"""
         if getattr(self, "auto_scroll_enabled", True):
             self.table.scrollToBottom()
+
+    def _apply_progressbar_hidden_style(self):
+        """Скрывает прогрессбар через фон и цвет чанка."""
+        try:
+            self.progress.setStyleSheet("""
+                QProgressBar {
+                    background-color: transparent;
+                    border: none;
+                }
+                QProgressBar::chunk {
+                    background-color: transparent;
+                }
+            """)
+        except Exception:
+            pass
+
+    def _apply_progressbar_visible_style(self):
+        """Возвращает прогрессбар к видимому стилю."""
+        try:
+            self.progress.setStyleSheet("""
+                QProgressBar {
+                    background-color: #1e1e1e;
+                    border: 1px solid #3c3c3c;
+                    border-radius: 4px;
+                    text-align: center;
+                }
+                QProgressBar::chunk {
+                    background-color: #0078d4;
+                    border-radius: 4px;
+                }
+            """)
+        except Exception:
+            pass
     
     @pyqtSlot(str)
     def add_strategy_header(self, bat_file):
@@ -926,6 +1130,10 @@ class TestWindow(StandardDialog):
         
         http_tls_text = ' '.join(http_tls_parts) if http_tls_parts else 'N/A'
         http_tls_item = QTableWidgetItem(http_tls_text)
+        # Tooltip с подробной информацией
+        http_tls_item.setToolTip(
+            f"HTTP: {http_val}\nTLS 1.2: {tls12_val}\nTLS 1.3: {tls13_val}"
+        )
         self.table.setItem(row, 2, http_tls_item)
         
         # Формируем строку Ping результатов
@@ -933,6 +1141,7 @@ class TestWindow(StandardDialog):
         if ping_text != 'N/A' and ping_text:
             ping_text = f"{ping_text}"
         ping_item = QTableWidgetItem(ping_text)
+        ping_item.setToolTip(f"Ping: {ping_val}")
         self.table.setItem(row, 3, ping_item)
         
         # Цветовая индикация для HTTP/TLS колонки
@@ -1131,10 +1340,21 @@ class TestWindow(StandardDialog):
     @pyqtSlot()
     def tests_finished(self):
         self.is_running = False
-        # Возвращаем текст меню на "Запустить"
+        self.is_paused = False
+        if hasattr(self, "action_pause"):
+            self.action_pause.setChecked(False)
+            self.action_pause.setText(tr('test_menu_pause', self.language))
+        # Прячем прогрессбар по завершении
+        self._apply_progressbar_hidden_style()
+        # Восстанавливаем заголовок окна
+        try:
+            title_base = tr('test_window_title', self.language)
+        except Exception:
+            title_base = 'Тестирование'
+        self.setWindowTitle(f"{title_base} — {tr('test_status_finished', self.language)}")
+        # Возвращаем текст кнопки в состояние "Запустить"
         if hasattr(self, "action_toggle_tests"):
-            self.action_toggle_tests.setText(tr('button_start', self.language))
-        self.status_label.setText(tr('test_status_finished', self.language))
+            self.action_toggle_tests.setText(tr('test_start_button', self.language))
         self.progress.setValue(self.progress.maximum())
         
         # Финальное обновление таблицы лучших стратегий

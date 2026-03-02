@@ -4,7 +4,7 @@ from pathlib import Path
 from .path_utils import get_base_path, get_config_path as _get_config_path
 
 
-VERSION = "1.6.1"
+VERSION = "1.6.2"
 ZAPRET = "1.9.7"
 MD5 = "ZapretDesktop@proton.me"
 
@@ -35,14 +35,14 @@ class ConfigManager:
             'auto_start_last_strategy': False,
             'add_b_flag_on_update': True,
             'last_strategy': '',
-            'auto_restart_strategy': False,
+            'auto_restart_strategy': True,
             'game_filter_enabled': False,
             'ipset_filter_mode': 'loaded',  # 'loaded', 'none', 'any'
             'first_run_done': False,
             'winws_path': '',  # Путь к папке winws; пусто = рядом с программой
             'auto_restart_apps': [],  # Список имён процессов для автоперезапуска (discord.exe и т.п.)
             'zapret_repo': 'Flowseal/zapret-discord-youtube',  # Репозиторий zapret по умолчанию
-            'remove_check_updates': False,  # Удалять проверку обновлений zapret из стратегий
+            'remove_check_updates': True,  # Удалять проверку обновлений zapret из стратегий
         }
         self.default_config = {
             'app': self.default_settings.copy(),

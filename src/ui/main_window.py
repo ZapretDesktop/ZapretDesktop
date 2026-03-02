@@ -1,6 +1,6 @@
 from PyQt6.QtWidgets import *
 from PyQt6.QtCore import *
-from PyQt6.QtCore import pyqtSignal
+from PyQt6.QtCore import pyqtSignal, pyqtSlot, QFileSystemWatcher
 from PyQt6.QtGui import *
 from .system_tray import SystemTray
 from src.core.config_manager import ConfigManager, VERSION, MD5
@@ -23,6 +23,7 @@ from src.widgets.custom_context_widgets import ContextTextEdit
 from src.dialogs.vs_update_dialog import VSUpdateDialog
 from src.ui.message_box_utils import configure_message_box
 from src.dialogs.addons_dialog import AddonsDialog
+from src.dialogs.winws_setup_dialog import WinwsSetupDialog
 import os
 import re
 import requests
@@ -107,6 +108,10 @@ class MainWindow(StandardMainWindow):
         self.process_monitor_timer.timeout.connect(self.check_winws_process)
         self._start_worker = None  # фоновый запуск стратегии
         self._stop_worker = None   # фоновая остановка
+        # Отслеживание появления/изменения папки winws
+        self.winws_watcher = QFileSystemWatcher(self)
+        self.winws_watcher.directoryChanged.connect(self._on_winws_dir_changed)
+        self._init_winws_watcher()
         # Инициализация менеджера конфигурации
         self.config = ConfigManager()
         # Загружаем настройки из файла
@@ -214,8 +219,9 @@ class MainWindow(StandardMainWindow):
             "QProgressBar { background: transparent; border: none; min-height: 1px; max-height: 1px; margin: 0; padding: 0; } "
             "QProgressBar::chunk { background: #0078d4; min-height: 1px; }"
         )
-        self.menu_progress_bar.setFixedHeight(0)
-        self.menu_progress_bar.setMaximumHeight(0)
+        # Резервируем 1px высоты сразу, чтобы при первом показе полоска не сдвигала остальной контент
+        self.menu_progress_bar.setFixedHeight(1)
+        self.menu_progress_bar.setMaximumHeight(1)
         progress_bar_container_layout.addWidget(self.menu_progress_bar)
         layout.addWidget(progress_bar_container)
         
@@ -960,7 +966,34 @@ class MainWindow(StandardMainWindow):
     def check_zapret_updates(self):
         """Проверяет наличие обновлений стратегий zapret"""
         lang = self.settings.get('language', 'ru')
-        
+
+        # Если папка winws отсутствует (или удалена), открываем окно первоначальной загрузки
+        winws_folder = get_winws_path()
+        has_winws = (
+            os.path.isdir(winws_folder)
+            and (
+                os.path.isfile(os.path.join(winws_folder, "service.bat"))
+                or os.path.isfile(os.path.join(winws_folder, "bin", "winws.exe"))
+            )
+        )
+        if not has_winws:
+            dlg = WinwsSetupDialog(self, self.config)
+            dlg.exec()
+            # После диалога пробуем пересоздать апдейтер и перечитать настройки
+            self.settings = self.config.load_settings()
+            self.zapret_updater = ZapretUpdater()
+            winws_folder = get_winws_path()
+            has_winws = (
+                os.path.isdir(winws_folder)
+                and (
+                    os.path.isfile(os.path.join(winws_folder, "service.bat"))
+                    or os.path.isfile(os.path.join(winws_folder, "bin", "winws.exe"))
+                )
+            )
+            # Если после диалога winws всё ещё нет — просто выходим, не показывая "уже последняя версия"
+            if not has_winws:
+                return
+
         # Показываем окно проверки в стиле VS
         update_dialog = VSUpdateDialog(self, lang)
         update_dialog.set_status(tr('update_checking', lang))
@@ -1176,10 +1209,24 @@ class MainWindow(StandardMainWindow):
             msg.exec()
             return
         repo_slug = f"{owner}/{repo}"
-        # Если это тот же репозиторий, что используется для zapret‑обновлений — запускаем стандартную проверку
+        # Если это тот же репозиторий, что используется для zapret‑обновлений
         if repo_slug.lower() == getattr(self.zapret_updater, "github_repo", ZapretUpdater.GITHUB_REPO).lower():
-            self.check_zapret_updates()
-            return
+            # Проверяем наличие winws
+            winws_folder = get_winws_path()
+            has_winws = (
+                os.path.isdir(winws_folder)
+                and (
+                    os.path.isfile(os.path.join(winws_folder, "service.bat"))
+                    or os.path.isfile(os.path.join(winws_folder, "bin", "winws.exe"))
+                )
+            )
+            if has_winws:
+                # Если winws есть — запускаем стандартную проверку обновления
+                self.check_zapret_updates()
+                return
+            else:
+                # Если winws нет — скачиваем напрямую без проверки версии
+                return self._download_and_install_zapret_direct(lang, owner, repo)
         self._download_addon_from_github(lang, name, owner, repo, mode)
     
     def _download_addon_from_github(self, lang, name, owner, repo, mode="full"):
@@ -1189,6 +1236,20 @@ class MainWindow(StandardMainWindow):
           - full/strategies/bin: передаётся в zapret_updater (пока обрабатывается как полная установка)
           - lists: обновляет только winws\\lists (list-*.txt, ipset-*.txt и т.п.)
         """
+        # Проверяем наличие winws перед скачиванием (только если не списки)
+        winws_folder = get_winws_path()
+        has_winws = (
+            os.path.isdir(winws_folder)
+            and (
+                os.path.isfile(os.path.join(winws_folder, "service.bat"))
+                or os.path.isfile(os.path.join(winws_folder, "bin", "winws.exe"))
+            )
+        )
+        # Если winws не найдена и режим не "lists", сразу скачиваем и устанавливаем
+        if not has_winws and mode != "lists":
+            # Прямое скачивание и установка через ZapretUpdater (без проверки версии)
+            return self._download_and_install_zapret_direct(lang, owner, repo)
+
         winws_running = False
         try:
             for proc in psutil.process_iter(['pid', 'name']):
@@ -1282,6 +1343,151 @@ class MainWindow(StandardMainWindow):
             idx = self._find_combo_index_by_data(current_strategy)
             if idx >= 0:
                 self.combo_box.setCurrentIndex(idx)
+            msg = configure_message_box(QMessageBox(self))
+            msg.setWindowTitle(tr('update_completed', lang))
+            msg.setText(tr('addons_success', lang))
+            msg.setIcon(QMessageBox.Icon.Information)
+            msg.exec()
+        except Exception as e:
+            update_dialog.close()
+            msg = configure_message_box(QMessageBox(self))
+            msg.setWindowTitle(tr('update_error_title', lang))
+            msg.setText(tr('addons_error_download', lang).format(str(e)))
+            msg.setIcon(QMessageBox.Icon.Critical)
+            msg.exec()
+
+    def _download_and_install_zapret_direct(self, lang, owner, repo):
+        """Скачивает и устанавливает zapret напрямую (без окна настройки и проверки версии)."""
+        update_dialog = VSUpdateDialog(self, lang)
+        update_dialog.set_status(tr('update_downloading', lang))
+        update_dialog.show_cancel(False)
+        update_dialog.show()
+        QApplication.processEvents()
+
+        try:
+            download_url = None
+            # Сначала пытаемся взять последний релиз
+            api_url = f"https://api.github.com/repos/{owner}/{repo}/releases/latest"
+            r = requests.get(api_url, timeout=15)
+            if r.status_code == 404:
+                # У репозитория нет релизов — падаем обратно на архив ветки по умолчанию
+                repo_api = f"https://api.github.com/repos/{owner}/{repo}"
+                r_repo = requests.get(repo_api, timeout=15)
+                r_repo.raise_for_status()
+                repo_data = r_repo.json()
+                default_branch = (repo_data.get("default_branch") or "main").strip()
+                if not default_branch:
+                    default_branch = "main"
+                download_url = f"https://github.com/{owner}/{repo}/archive/refs/heads/{default_branch}.zip"
+            else:
+                r.raise_for_status()
+                data = r.json()
+                for asset in data.get('assets', []):
+                    if asset.get('name', '').endswith('.zip'):
+                        download_url = asset.get('browser_download_url')
+                        break
+                if not download_url:
+                    repo_api = f"https://api.github.com/repos/{owner}/{repo}"
+                    r_repo = requests.get(repo_api, timeout=15)
+                    r_repo.raise_for_status()
+                    repo_data = r_repo.json()
+                    default_branch = (repo_data.get("default_branch") or "main").strip()
+                    if not default_branch:
+                        default_branch = "main"
+                    download_url = f"https://github.com/{owner}/{repo}/archive/refs/heads/{default_branch}.zip"
+
+            if not download_url:
+                update_dialog.close()
+                msg = configure_message_box(QMessageBox(self))
+                msg.setWindowTitle(tr('update_error_title', lang))
+                msg.setText(tr('addons_error_no_zip', lang))
+                msg.setIcon(QMessageBox.Icon.Warning)
+                msg.exec()
+                return
+
+            def progress_cb(value):
+                update_dialog.set_progress(value)
+                QApplication.processEvents()
+
+            zip_path = self.zapret_updater.download_update(download_url, progress_callback=progress_cb)
+            update_dialog.set_status(tr('update_installing', lang))
+            update_dialog.set_progress(90)
+            QApplication.processEvents()
+
+            # Используем extract_zip_to_winws (не extract_and_update, чтобы не записывать версию)
+            self.zapret_updater.extract_zip_to_winws(zip_path)
+
+            # Применяем автоматические правки (если включены)
+            settings = self.config.load_settings()
+            winws_folder = get_winws_path()
+
+            # Авто-добавление /B
+            if settings.get("add_b_flag_on_update", False) and os.path.isdir(winws_folder):
+                try:
+                    bat_files = [
+                        f for f in os.listdir(winws_folder)
+                        if f.lower().endswith(".bat") and os.path.isfile(os.path.join(winws_folder, f))
+                    ]
+                    old_string = 'start "zapret: %~n0" /min'
+                    new_string = 'start "zapret: %~n0" /B /min'
+                    for filename in bat_files:
+                        file_path = os.path.join(winws_folder, filename)
+                        try:
+                            with open(file_path, "r", encoding="utf-8", errors="ignore") as f:
+                                content = f.read()
+                            if old_string in content:
+                                new_content = content.replace(old_string, new_string)
+                                with open(file_path, "w", encoding="utf-8") as f:
+                                    f.write(new_content)
+                        except Exception:
+                            continue
+                except Exception:
+                    pass
+
+            # Авто-удаление check_updates
+            if settings.get("remove_check_updates", False) and os.path.isdir(winws_folder):
+                try:
+                    bat_files = [
+                        f for f in os.listdir(winws_folder)
+                        if f.lower().endswith(".bat") and os.path.isfile(os.path.join(winws_folder, f))
+                    ]
+                    for filename in bat_files:
+                        file_path = os.path.join(winws_folder, filename)
+                        try:
+                            with open(file_path, "r", encoding="utf-8", errors="ignore") as f:
+                                lines = f.readlines()
+                            new_lines = []
+                            modified = False
+                            for line in lines:
+                                stripped = line.strip().lower()
+                                if (
+                                    stripped == "call service.bat check_updates"
+                                    or "call service.bat check_updates" in stripped
+                                ):
+                                    modified = True
+                                    continue
+                                new_lines.append(line)
+                            if modified:
+                                with open(file_path, "w", encoding="utf-8") as f:
+                                    f.writelines(new_lines)
+                        except Exception:
+                            continue
+                except Exception:
+                    pass
+
+            update_dialog.set_progress(100)
+            update_dialog.set_status(tr('update_completed', lang))
+            QApplication.processEvents()
+
+            # Обновляем список стратегий
+            current_strategy = self._get_selected_strategy_name()
+            self.combo_box.clear()
+            self.load_bat_files()
+            idx = self._find_combo_index_by_data(current_strategy)
+            if idx >= 0:
+                self.combo_box.setCurrentIndex(idx)
+
+            update_dialog.close()
             msg = configure_message_box(QMessageBox(self))
             msg.setWindowTitle(tr('update_completed', lang))
             msg.setText(tr('addons_success', lang))
@@ -1582,6 +1788,21 @@ class MainWindow(StandardMainWindow):
         # Передаем None, чтобы TestWindow сам определил правильный путь
         test_window = TestWindow(self, winws_folder=None)
         test_window.exec()
+
+    @pyqtSlot(str)
+    def on_test_strategy_changed(self, strategy_name: str):
+        """Вызывается из TestWindow при смене тестируемой стратегии — обновляет combo и title."""
+        if not strategy_name:
+            return
+        self.running_strategy = strategy_name
+        self.is_running = True
+        self._started_winws_this_session = False  # winws запущен TestWindow
+        index = self._find_combo_index_by_data(strategy_name)
+        if index >= 0:
+            self.combo_box.setCurrentIndex(index)
+        self._refresh_strategy_display()
+        self._update_window_title_with_strategy()
+        self._sync_run_state_ui()
     
     def show_editor(self):
         """Открывает объединённый редактор (списки, drivers\\etc, стратегии)"""
@@ -2568,6 +2789,13 @@ if ($res.StatusCode -eq 200) {{ $res.Content | Out-File -FilePath $out -Encoding
         """Обновляет заголовок окна вида 'ZapretDesktop — <стратегия>' если стратегия запущена."""
         base_title = "ZapretDesktop"
         if self.is_running and self.running_strategy:
+            # Пытаемся вытащить текст из ComboBox (там уже есть версия и pid)
+            idx = self._find_combo_index_by_data(self.running_strategy)
+            if idx >= 0:
+                text = self.combo_box.itemText(idx)
+                self.setWindowTitle(f"{base_title} — {text}")
+                return
+            # Fallback: только имя стратегии
             self.setWindowTitle(f"{base_title} — {self.running_strategy}")
         else:
             self.setWindowTitle(base_title)
@@ -2600,8 +2828,6 @@ if ($res.StatusCode -eq 200) {{ $res.Content | Out-File -FilePath $out -Encoding
         if hasattr(self, 'menu_progress_bar') and self.menu_progress_bar:
             self.menu_progress_bar.setMaximum(100)
             self.menu_progress_bar.setValue(0)
-            self.menu_progress_bar.setFixedHeight(0)
-            self.menu_progress_bar.setMaximumHeight(0)
     
     def toggle_game_filter(self):
         """Переключает Game Filter"""
@@ -2824,6 +3050,51 @@ if ($res.StatusCode -eq 200) {{ $res.Content | Out-File -FilePath $out -Encoding
         # После пересборки списка стратегий — обновляем отображение версии/ pid
         self._refresh_strategy_display()
 
+    def _init_winws_watcher(self):
+        """Инициализирует наблюдение за папкой winws."""
+        try:
+            # Очищаем старый список
+            if self.winws_watcher.files():
+                self.winws_watcher.removePaths(self.winws_watcher.files())
+            if self.winws_watcher.directories():
+                self.winws_watcher.removePaths(self.winws_watcher.directories())
+        except Exception:
+            pass
+
+        base_dir = get_base_path()
+        winws_folder = get_winws_path()
+
+        # Следим как за самой папкой winws (если есть), так и за базовой директорией,
+        # чтобы поймать момент, когда winws появится/исчезнет.
+        dirs_to_watch = set()
+        if os.path.isdir(base_dir):
+            dirs_to_watch.add(os.path.abspath(base_dir))
+        parent_winws = os.path.dirname(winws_folder)
+        if parent_winws and os.path.isdir(parent_winws):
+            dirs_to_watch.add(os.path.abspath(parent_winws))
+        if os.path.isdir(winws_folder):
+            dirs_to_watch.add(os.path.abspath(winws_folder))
+
+        try:
+            if dirs_to_watch:
+                self.winws_watcher.addPaths(list(dirs_to_watch))
+        except Exception:
+            pass
+
+    def _on_winws_dir_changed(self, path: str):
+        """Обработчик изменений в файловой системе для автодетекта winws."""
+        try:
+            # Переинициализируем watcher (на случай перемещения/создания winws)
+            self._init_winws_watcher()
+        except Exception:
+            pass
+
+        # Просто перезагружаем список стратегий — load_bat_files сам проверит наличие winws
+        try:
+            self.load_bat_files()
+        except Exception:
+            pass
+
     def _get_selected_strategy_name(self):
         """Возвращает "сырой" идентификатор стратегии (без украшений), если выбран реальный .bat."""
         try:
@@ -2962,7 +3233,8 @@ if ($res.StatusCode -eq 200) {{ $res.Content | Out-File -FilePath $out -Encoding
                 if isinstance(data, str) and data:
                     if data == ext_key:
                         continue
-                    self._set_combo_item_text(i, f"{data} [{base_version}]")
+                    # Формат по умолчанию: "<strategy> <version>" (без pid)
+                    self._set_combo_item_text(i, f"{data} {base_version}")
         except Exception:
             return
 
@@ -2993,18 +3265,21 @@ if ($res.StatusCode -eq 200) {{ $res.Content | Out-File -FilePath $out -Encoding
         if self.running_strategy:
             idx = self._find_combo_index_by_data(self.running_strategy)
             if idx >= 0:
-                # Для внешнего запуска добавляем pid, иначе оставляем просто версию
+                # Для внешнего процесса добавляем pid, иначе оставляем только стратегию и версию
                 if external and pid:
-                    self._set_combo_item_text(idx, f"{self.running_strategy} [{version} | {pid}]")
+                    self._set_combo_item_text(idx, f"{self.running_strategy} {version} pid={pid}")
                 else:
-                    self._set_combo_item_text(idx, f"{self.running_strategy} [{version}]")
+                    self._set_combo_item_text(idx, f"{self.running_strategy} {version}")
                 return
 
         # Иначе (стратегия не определена или не видна) — добавляем/обновляем специальный пункт
         lang = self.settings.get('language', 'ru')
         ext_title = "Внешний запуск winws" if lang == 'ru' else "External winws"
-        suffix = f"[{version} | {pid}]" if pid else f"[{version}]"
-        display = f"{ext_title} {suffix}"
+        # Для внешнего winws: "<title> <version>" + " pid =<pid>" только если pid известен
+        if pid:
+            display = f"{ext_title} {version} pid={pid}"
+        else:
+            display = f"{ext_title} {version}"
 
         ext_idx = self._find_combo_index_by_data(ext_key)
         if ext_idx < 0:
@@ -3121,6 +3396,8 @@ if ($res.StatusCode -eq 200) {{ $res.Content | Out-File -FilePath $out -Encoding
                 strategy_to_select = detected
                 self.is_running = True
                 self.running_strategy = detected
+                # Процесс запущен не этой сессией — показываем pid в combo и title
+                self._started_winws_this_session = False
         if not strategy_to_select:
             strategy_to_select = self.settings.get('last_strategy', '')
         if strategy_to_select:
@@ -3128,7 +3405,8 @@ if ($res.StatusCode -eq 200) {{ $res.Content | Out-File -FilePath $out -Encoding
             if index >= 0:
                 self.combo_box.setCurrentIndex(index)
                 if winws_running:
-                    # Если стратегия уже запущена при старте приложения, обновляем заголовок
+                    # Если стратегия уже запущена при старте приложения — обновляем combo (в т.ч. pid) и заголовок
+                    self._refresh_strategy_display()
                     self._update_window_title_with_strategy()
                 elif self.settings.get('auto_start_last_strategy', False):
                     QTimer.singleShot(500, self.auto_start_strategy)
