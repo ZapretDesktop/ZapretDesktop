@@ -24,6 +24,8 @@ from src.dialogs.vs_update_dialog import VSUpdateDialog
 from src.ui.message_box_utils import configure_message_box
 from src.dialogs.addons_dialog import AddonsDialog
 from src.dialogs.winws_setup_dialog import WinwsSetupDialog
+from src.ui import theme
+from src.core.window_styles import apply_window_style
 import os
 import re
 import requests
@@ -272,21 +274,24 @@ class MainWindow(StandardMainWindow):
         self.version_label.setTextInteractionFlags(Qt.TextInteractionFlag.TextBrowserInteraction)
         self.version_label.setOpenExternalLinks(True)
         self.version_label.setCursor(Qt.CursorShape.PointingHandCursor)
-        self.version_label.setStyleSheet("color: gray; font-size: 10px; margin: 0px;")
+        self.version_label.setStyleSheet(theme.small_muted_label_style())
         self.version_label.setContextMenuPolicy(Qt.ContextMenuPolicy.CustomContextMenu)
         self.version_label.customContextMenuRequested.connect(self._show_version_context_menu)
         self.load_version_info()
         bottom_layout.addWidget(self.version_label)
 
+        # E-mail как ссылка, цвет берём из палитры темы (inline style)
+        p = theme.palette()
         self.contact_label = QLabel(
-            '<a href="mailto:ZapretDesktop@proton.me">ZapretDesktop@proton.me</a>'
+            f'<a style="color:{p.accent}; text-decoration:none;" '
+            f'href="mailto:ZapretDesktop@proton.me">ZapretDesktop@proton.me</a>'
         )
         self.contact_label.setAlignment(Qt.AlignmentFlag.AlignCenter)
         self.contact_label.setTextFormat(Qt.TextFormat.RichText)
         self.contact_label.setTextInteractionFlags(Qt.TextInteractionFlag.TextBrowserInteraction)
         self.contact_label.setOpenExternalLinks(True)
         self.contact_label.setCursor(Qt.CursorShape.PointingHandCursor)
-        self.contact_label.setStyleSheet("color: gray; font-size: 10px; margin: 0px;")
+        self.contact_label.setStyleSheet(theme.small_muted_label_style())
         self.contact_label.setContextMenuPolicy(Qt.ContextMenuPolicy.CustomContextMenu)
         self.contact_label.customContextMenuRequested.connect(self._show_contact_context_menu)
         bottom_layout.addWidget(self.contact_label)
@@ -391,7 +396,21 @@ class MainWindow(StandardMainWindow):
         self.open_settings_action.setShortcut(QKeySequence("Ctrl+,"))
         self.open_settings_action.triggered.connect(self.show_settings_dialog)
         self.settings_menu.addAction(self.open_settings_action)
-        
+
+        # Цветовая тема (Dark / Light)
+        self.theme_submenu = StyleMenu(self.settings_menu)
+        self.theme_submenu.setTitle(tr('settings_theme', lang))
+        self.theme_dark_action = QAction(tr('settings_theme_dark', lang), self)
+        self.theme_dark_action.setCheckable(True)
+        self.theme_dark_action.triggered.connect(lambda: self._apply_theme('dark'))
+        self.theme_light_action = QAction(tr('settings_theme_light', lang), self)
+        self.theme_light_action.setCheckable(True)
+        self.theme_light_action.triggered.connect(lambda: self._apply_theme('light'))
+        self.theme_submenu.addAction(self.theme_dark_action)
+        self.theme_submenu.addAction(self.theme_light_action)
+        self.settings_menu.addMenu(self.theme_submenu)
+        self._update_theme_menu_checked()
+
         # Добавляем меню Settings в менюбар
         self.settings_menu_action = self.menubar.addAction('')
         self.settings_menu_action.setMenu(self.settings_menu)
@@ -547,6 +566,12 @@ class MainWindow(StandardMainWindow):
             self.settings_menu_action.setText(tr('menu_settings', lang))
         if hasattr(self, 'open_settings_action') and self.open_settings_action:
             self.open_settings_action.setText(tr('tray_program_parameters', lang))
+        if hasattr(self, 'theme_submenu') and self.theme_submenu:
+            self.theme_submenu.setTitle(tr('settings_theme', lang))
+        if hasattr(self, 'theme_dark_action') and self.theme_dark_action:
+            self.theme_dark_action.setText(tr('settings_theme_dark', lang))
+        if hasattr(self, 'theme_light_action') and self.theme_light_action:
+            self.theme_light_action.setText(tr('settings_theme_light', lang))
         if hasattr(self, 'update_menu_action') and self.update_menu_action:
             self.update_menu_action.setText(tr('menu_update', lang))
         if hasattr(self, 'check_app_updates_action') and self.check_app_updates_action:
@@ -604,6 +629,26 @@ class MainWindow(StandardMainWindow):
         self.settings['language'] = lang
         self.config.set_setting('language', lang)
         self.retranslate_ui()
+
+    def _update_theme_menu_checked(self):
+        """Отмечает активную тему (dark/light) в подменю."""
+        if not hasattr(self, 'theme_dark_action') or not hasattr(self, 'theme_light_action'):
+            return
+        is_light = theme.is_light()
+        self.theme_light_action.setChecked(is_light)
+        self.theme_dark_action.setChecked(not is_light)
+
+    def _apply_theme(self, theme_name: str):
+        """Применяет тему, сохраняет её в настройки и обновляет стили."""
+        theme.set_theme(theme_name)
+        self.settings['color_theme'] = theme_name
+        self.config.set_setting('color_theme', theme_name)
+        app = QApplication.instance()
+        if app:
+            app.setStyleSheet(theme.app_stylesheet())
+        # Обновляем заголовок окна под тему
+        apply_window_style(self)
+        self._update_theme_menu_checked()
     
     def toggle_show_in_tray(self):
         """Переключает отображение в трее"""
@@ -2911,20 +2956,31 @@ if ($res.StatusCode -eq 200) {{ $res.Content | Out-File -FilePath $out -Encoding
         """
         version = VERSION
         md5 = MD5
+        p = theme.palette()
+        accent = p.accent
+        muted = p.fg_muted
+
         # Ссылка на релиз текущей версии
         release_url = f"https://github.com/ZapretDesktop/ZapretDesktop/releases/tag/{version}"
+        release_link = (
+            f'<a style="color:{accent}; text-decoration:none;" href="{release_url}">{version}</a>'
+        )
+
         if self.latest_available_version and self.latest_available_version != version:
             latest = self.latest_available_version
             latest_release_url = f"https://github.com/ZapretDesktop/ZapretDesktop/releases/tag/{latest}"
-            version_text = (
-                f'<a href="{release_url}">{version}</a> '
-                f'(→<a href="{latest_release_url}"><span style="color:#0b6b2a;">{latest}</span></a>)'
+            latest_link = (
+                f'<a style="color:{accent}; text-decoration:none;" '
+                f'href="{latest_release_url}">{latest}</a>'
             )
+            version_text = f"{release_link} (→{latest_link})"
         else:
-            version_text = f'<a href="{release_url}">{version}</a>'
+            version_text = release_link
+
         # Если MD5 не является тем же самым e-mail, можно добавить его отдельной строкой
         if md5 and md5 != "ZapretDesktop@proton.me":
-            version_text += f"<br>{md5}"
+            version_text += f'<br><span style="color:{muted};">{md5}</span>'
+
         self.version_label.setText(version_text)
 
     def _show_version_context_menu(self, pos):

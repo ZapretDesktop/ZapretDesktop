@@ -4,7 +4,7 @@
 
 **ZapretDesktop** — программа для Windows, которая управляет обходом DPI (глубокой инспекции пакетов) на основе zapret/Flowseal. Через один интерфейс вы выбираете стратегию, запускаете её, тестируете, редактируете списки доменов и обновляете компоненты.
 
-- **Версия:** 1.6.2  
+- **Версия:** 1.6.3  
 - **Платформа:** Windows 10/11 (64-bit)  
 - **Требования:** права администратора, при сборке из исходников — Python 3.10+
 
@@ -363,7 +363,7 @@
 
 ### Зависимости
 
-- Указаны в `requirements.txt`: PyQt6 (≥6.4), psutil (≥5.9), requests (≥2.28), pywinstyles (≥1.0). Для сборки exe дополнительно нужен PyInstaller.
+- Указаны в `requirements.txt`: PyQt6 (≥6.4), psutil (≥5.9), requests (≥2.28). Для сборки exe дополнительно нужен PyInstaller.
 
 ### Сборка одним скриптом
 
@@ -378,7 +378,7 @@ build.bat
 1. Проверяет наличие Python в PATH.
 2. Устанавливает зависимости из `requirements.txt` и PyInstaller.
 3. Удаляет каталоги `build` и `dist` при их наличии.
-4. Запускает PyInstaller с параметрами: один файл, без консоли, имя ZapretDesktop, иконка icon.ico, скрытые импорты pywinstyles и PyQt6.QtSvg, без UPX.
+4. Запускает PyInstaller с параметрами: один файл, без консоли, имя ZapretDesktop, иконка icon.ico, скрытый импорт PyQt6.QtSvg, без UPX.
 5. Если в проекте есть папка **winws**, копирует её в `dist\winws`.
 
 Результат: **dist\ZapretDesktop.exe**. Рядом должна лежать папка **winws** (скопирована скриптом, если была в проекте).
@@ -388,7 +388,7 @@ build.bat
 ```batch
 pip install -r requirements.txt
 pip install pyinstaller
-pyinstaller --noconfirm --onefile --windowed --name ZapretDesktop --icon icon.ico --hidden-import pywinstyles --hidden-import PyQt6.QtSvg --noupx ZapretDesktop.py
+pyinstaller --noconfirm --onefile --windowed --name ZapretDesktop --icon icon.ico --hidden-import PyQt6.QtSvg --noupx ZapretDesktop.py
 ```
 
 Исполняемый файл появится в **dist\ZapretDesktop.exe**. Папку **winws** при необходимости скопируйте в `dist\` вручную.

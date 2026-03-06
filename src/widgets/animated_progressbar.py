@@ -23,9 +23,20 @@ class AnimatedProgressBar(QProgressBar):
         self.animation_timer.timeout.connect(self._update_animation)
         self.is_indeterminate = False
         
-        # VS Code colors
-        self.progress_color = QColor("#0078d4")
-        self.background_color = QColor(0, 122, 204, 51)  # rgba(0, 122, 204, 0.2)
+        # Цвета из темы
+        try:
+            from src.ui import theme
+            acc = theme.palette().accent
+            self.progress_color = QColor(acc)
+            # Парсим #0078d4 -> rgb, создаём полупрозрачный фон
+            if acc.startswith('#'):
+                r, g, b = int(acc[1:3], 16), int(acc[3:5], 16), int(acc[5:7], 16)
+            else:
+                r, g, b = 0, 122, 204
+            self.background_color = QColor(r, g, b, 51)
+        except Exception:
+            self.progress_color = QColor("#0078d4")
+            self.background_color = QColor(0, 122, 204, 51)
         
         # Apply base style
         self.setStyleSheet("""

@@ -95,8 +95,11 @@ class AutocompletePopup(QFrame):
         self.setFocusPolicy(Qt.FocusPolicy.NoFocus)
 
         self.corner_radius = 6
-        self.bg_color = QColor(31, 31, 31)
-        self.border_color = QColor(51, 51, 51)
+        # Цвета фона и рамки берём из текущей темы, чтобы поддерживать светлую/тёмную
+        from src.ui import theme
+        p = theme.palette()
+        self.bg_color = QColor(p.bg_panel)
+        self.border_color = QColor(p.border)
         self.border_width = 1
  
 
@@ -105,51 +108,44 @@ class AutocompletePopup(QFrame):
         self._list = QListWidget()
         self._list.setFocusPolicy(Qt.FocusPolicy.NoFocus)
         self._list.setCursor(Qt.CursorShape.PointingHandCursor)
-        self._list.setStyleSheet("""
-           QListWidget {
+        from src.ui import theme
+        p = theme.palette()
+        self._list.setStyleSheet(f"""
+           QListWidget {{
     background: transparent;
-    color: #cccccc;
+    color: {p.fg_text};
     padding: 4px 0;
     border: none;
     outline: none;
-}
-QListWidget::item {
-    padding: 4px 20px; /* Увеличенные отступы слева и справа */
-}
-QListWidget::item:selected {
-    background: #04395e;
-    color: white;
-}
-QListWidget::item:hover {
-    background: #2a2d2e;
-}
-QListWidget::item:!active {
-    border-left: 1px solid #2b2b2b;
-    border-right: 1px solid #2b2b2b;
+}}
+QListWidget::item {{ padding: 4px 20px; }}
+QListWidget::item:selected {{ background: {p.accent}; color: white; }}
+QListWidget::item:hover {{ background: {p.hover_bg}; }}
+QListWidget::item:!active {{
+    border-left: 1px solid {p.border};
+    border-right: 1px solid {p.border};
     border-top: none;
     border-bottom: none;
-}
-QListWidget::item:selected:!active {
-    background-color: #04395e;
-}
+}}
+QListWidget::item:selected:!active {{ background-color: {p.accent}; }}
         """)
         self._list.setVerticalScrollBarPolicy(Qt.ScrollBarPolicy.ScrollBarAsNeeded)
         self._list.setHorizontalScrollBarPolicy(Qt.ScrollBarPolicy.ScrollBarAlwaysOff)
         sb = self._list.verticalScrollBar()
-        sb.setStyleSheet("""
-            QScrollBar:vertical {
-                background: #2b2b2b;
+        sb.setStyleSheet(f"""
+            QScrollBar:vertical {{
+                background: {p.border};
                 width: 8px;
                 border-radius: 4px;
                 margin: 2px 0;
-            }
-            QScrollBar::handle:vertical {
-                background: #606060;
+            }}
+            QScrollBar::handle:vertical {{
+                background: {p.fg_muted};
                 border-radius: 4px;
                 min-height: 24px;
-            }
-            QScrollBar::handle:vertical:hover { background: #707070; }
-            QScrollBar::add-line:vertical, QScrollBar::sub-line:vertical { height: 0; }
+            }}
+            QScrollBar::handle:vertical:hover {{ background: {p.fg_text}; }}
+            QScrollBar::add-line:vertical, QScrollBar::sub-line:vertical {{ height: 0; }}
         """)
         self._list.setItemDelegate(AutocompleteItemDelegate(self))
         self._list.itemClicked.connect(self._on_item_clicked)

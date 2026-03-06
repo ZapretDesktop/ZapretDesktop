@@ -4,8 +4,8 @@ from pathlib import Path
 from .path_utils import get_base_path, get_config_path as _get_config_path
 
 
-VERSION = "1.6.2"
-ZAPRET = "1.9.7"
+VERSION = "1.6.3"
+ZAPRET = "1.9.7b"
 MD5 = "ZapretDesktop@proton.me"
 
 class ConfigManager:
@@ -29,6 +29,7 @@ class ConfigManager:
             pass
         self.default_settings = {
             'language': 'ru',
+            'color_theme': 'dark',  # 'dark' | 'light'
             'show_in_tray': True,
             'close_winws_on_exit': True,
             'start_minimized': False,

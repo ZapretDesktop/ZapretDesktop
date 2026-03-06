@@ -35,7 +35,9 @@ class LabelMenuWidget(QLabel):
     
     def _update_style(self):
         """Обновляет стиль виджета."""
-        color = "#D4D4D4" if self._hovered else "#969696"
+        from src.ui import theme
+        p = theme.palette()
+        color = p.fg_text if self._hovered else p.fg_muted
         self.setStyleSheet(f"""
             QLabel {{
                 background-color: transparent;

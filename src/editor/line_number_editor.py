@@ -11,14 +11,27 @@ from src.widgets.style_menu import StyleMenu
 from PyQt6.QtGui import QAction, QKeySequence
 from src.core.config_manager import ConfigManager
 from src.core.translator import tr
+from src.ui import theme
 
 
-# Цвета в стиле Android Studio / IntelliJ
-LINE_NUMBER_BG = QColor(31, 31, 31)
-LINE_NUMBER_FG = QColor(128, 128, 128)
-LINE_NUMBER_CURRENT_FG = QColor(212, 212, 212)
-CURRENT_LINE_BG = QColor(0x28, 0x28, 0x28)  # #282828
-OCCURRENCE_BG = QColor(0x3a, 0x3a, 0x2e)   # подсветка вхождений слова
+def _hex_to_qcolor(hex_str: str) -> QColor:
+    """Конвертирует #RRGGBB в QColor."""
+    h = hex_str.lstrip("#")
+    if len(h) == 6:
+        return QColor(int(h[0:2], 16), int(h[2:4], 16), int(h[4:6], 16))
+    return QColor(128, 128, 128)
+
+
+def _get_line_editor_colors():
+    """Возвращает цвета нумерации строк и подсветки из текущей темы."""
+    p = theme.palette()
+    return {
+        "line_number_bg": _hex_to_qcolor(p.line_number_bg),
+        "line_number_fg": _hex_to_qcolor(p.line_number_fg),
+        "line_number_current_fg": _hex_to_qcolor(p.line_number_current_fg),
+        "current_line_bg": _hex_to_qcolor(p.current_line_bg),
+        "occurrence_bg": _hex_to_qcolor(p.occurrence_bg),
+    }
 
 
 class LineNumberArea(QWidget):
@@ -84,12 +97,13 @@ class LineNumberPlainTextEdit(QPlainTextEdit):
             QTextDocument.FindFlag.FindCaseSensitively
             | QTextDocument.FindFlag.FindWholeWords
         )
+        colors = _get_line_editor_colors()
         while True:
             found = doc.find(text, pos, flags)
             if found.isNull():
                 break
             sel = QTextEdit.ExtraSelection()
-            sel.format.setBackground(QBrush(OCCURRENCE_BG))
+            sel.format.setBackground(QBrush(colors["occurrence_bg"]))
             sel.cursor = found
             extra.append(sel)
             pos = found.selectionEnd()
@@ -102,8 +116,9 @@ class LineNumberPlainTextEdit(QPlainTextEdit):
             return
         extra = list(self._get_occurrence_highlights())
         if not self.textCursor().hasSelection():
+            colors = _get_line_editor_colors()
             line_sel = QTextEdit.ExtraSelection()
-            line_sel.format.setBackground(QBrush(CURRENT_LINE_BG))
+            line_sel.format.setBackground(QBrush(colors["current_line_bg"]))
             line_sel.format.setProperty(QTextFormat.Property.FullWidthSelection, True)
             line_sel.cursor = self.textCursor()
             line_sel.cursor.clearSelection()
@@ -135,28 +150,29 @@ class LineNumberPlainTextEdit(QPlainTextEdit):
         )
     
     def line_number_area_paint_event(self, event):
+        colors = _get_line_editor_colors()
         painter = QPainter(self.line_number_area)
-        painter.fillRect(event.rect(), LINE_NUMBER_BG)
-        
+        painter.fillRect(event.rect(), colors["line_number_bg"])
+
         cursor_block = self.textCursor().block()
         current_block_number = cursor_block.blockNumber()
-        
+
         block = self.firstVisibleBlock()
         block_number = block.blockNumber()
         top = round(self.blockBoundingGeometry(block).translated(self.contentOffset()).top())
         bottom = top + round(self.blockBoundingRect(block).height())
-        
+
         while block.isValid() and top <= event.rect().bottom():
             if block.isVisible() and bottom >= event.rect().top():
                 is_current = block_number == current_block_number
                 num_rect = QRect(0, top, self.line_number_area.width() - 4, self.fontMetrics().height())
                 if is_current:
-                    painter.setPen(LINE_NUMBER_CURRENT_FG)
+                    painter.setPen(colors["line_number_current_fg"])
                     f = painter.font()
                     f.setBold(True)
                     painter.setFont(f)
                 else:
-                    painter.setPen(LINE_NUMBER_FG)
+                    painter.setPen(colors["line_number_fg"])
                     painter.setFont(self.font())
                 number = str(block_number + 1)
                 painter.drawText(num_rect, Qt.AlignmentFlag.AlignRight | Qt.AlignmentFlag.AlignVCenter, number)

@@ -6,6 +6,7 @@ from PyQt6.QtGui import QPainter, QColor, QPen
 from PyQt6.QtCore import Qt, QRectF, QSize
 from PyQt6.QtSvg import QSvgRenderer
 from src.core.embedded_assets import get_svg_qbytearray
+from src.ui import theme
 
 
 class CustomCheckBox(QCheckBox):
@@ -16,18 +17,21 @@ class CustomCheckBox(QCheckBox):
     def __init__(self, text="", parent=None):
         super().__init__(text, parent)
         self._load_renderer()
-        self.setStyleSheet("""
-            CustomCheckBox {
-                color: #D4D4D4;
+        p = theme.palette()
+        self.setStyleSheet(
+            f"""
+            CustomCheckBox {{
+                color: {p.fg_text};
                 spacing: 5px;
-            }
-            CustomCheckBox::indicator {
+            }}
+            CustomCheckBox::indicator {{
                 width: 0px;
                 height: 0px;
                 border: none;
                 background: transparent;
-            }
-        """)
+            }}
+        """
+        )
     
     @classmethod
     def _load_renderer(cls):
@@ -50,11 +54,17 @@ class CustomCheckBox(QCheckBox):
         
         # Фон чекбокса
         painter.setPen(Qt.PenStyle.NoPen)
-        painter.setBrush(QColor(49, 49, 49))
+        if theme.is_light():
+            painter.setBrush(QColor(240, 240, 240))
+        else:
+            painter.setBrush(QColor(49, 49, 49))
         painter.drawRoundedRect(box_rect, 3, 3)
         
         # Рамка
-        painter.setPen(QPen(QColor(60, 60, 60), 1))
+        if theme.is_light():
+            painter.setPen(QPen(QColor(180, 180, 180), 1))
+        else:
+            painter.setPen(QPen(QColor(60, 60, 60), 1))
         painter.setBrush(Qt.BrushStyle.NoBrush)
         painter.drawRoundedRect(box_rect.adjusted(0.5, 0.5, -0.5, -0.5), 3, 3)
         
@@ -66,7 +76,8 @@ class CustomCheckBox(QCheckBox):
         # Текст
         text_x = margin + box_size + 6
         text_rect = self.rect().adjusted(int(text_x), 0, 0, 0)
-        painter.setPen(QColor(212, 212, 212))
+        p = theme.palette()
+        painter.setPen(QColor(p.fg_text))
         painter.drawText(text_rect, Qt.AlignmentFlag.AlignVCenter | Qt.AlignmentFlag.AlignLeft, self.text())
         
         painter.end()

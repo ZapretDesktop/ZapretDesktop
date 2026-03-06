@@ -3,6 +3,7 @@ from PyQt6.QtGui import QPainter, QPainterPath, QColor, QPen, QPalette
 from PyQt6.QtCore import Qt, QRectF, QTimer, QEvent
 from PyQt6.QtSvg import QSvgRenderer
 from src.core.embedded_assets import get_svg_qbytearray
+from src.ui import theme
 
 
 class StyleMenu(QMenu):
@@ -15,24 +16,12 @@ class StyleMenu(QMenu):
         
         # Configurable properties
         self.corner_radius = 6
-        self.bg_color = QColor(31, 31, 31)      # #1f1f1f
-        self.border_color = QColor(51, 51, 51)  # #333333
-        # Основной цвет текста меню
-        self.text_color = QColor(204, 204, 204)  # #cccccc
-        # Цвет для горячих клавиш (чуть темнее основного)
-        self.shortcut_color = QColor(170, 170, 170)  # ~#aaaaaa
-        self.highlight_color = QColor(0, 120, 212)  # VSCode blue #0078d4
-
-        # Настраиваем палитру, чтобы текст и горячие клавиши имели нужные цвета
-        palette = self.palette()
-        # Основной текст пунктов меню
-        palette.setColor(QPalette.ColorRole.WindowText, self.text_color)
-        palette.setColor(QPalette.ColorRole.Text, self.text_color)
-        palette.setColor(QPalette.ColorRole.ButtonText, self.text_color)
-        # Цвет для дополнительных надписей (в т.ч. shortcut'ов)
-        palette.setColor(QPalette.ColorRole.Dark, self.shortcut_color)
-        palette.setColor(QPalette.ColorRole.Mid, self.shortcut_color)
-        self.setPalette(palette)
+        self.bg_color = QColor()
+        self.border_color = QColor()
+        self.text_color = QColor()
+        self.shortcut_color = QColor()
+        self.highlight_color = QColor()
+        self._apply_theme_colors()
 
         # Стрелка вправо из встроенных ресурсов (для ручной отрисовки)
         stylesheet_parts = []
@@ -63,6 +52,22 @@ class StyleMenu(QMenu):
         # Если задан — фокус вернётся этому виджету после показа (для автодополнения)
         self._restore_focus_widget = None
     
+    def _apply_theme_colors(self):
+        """Обновляет цвета из текущей темы (вызывается при создании и при показе меню)."""
+        p = theme.palette()
+        self.bg_color = QColor(p.bg_panel)
+        self.border_color = QColor(p.border)
+        self.text_color = QColor(p.fg_text)
+        self.shortcut_color = QColor(p.fg_muted)
+        self.highlight_color = QColor(p.accent)
+        pal = self.palette()
+        pal.setColor(QPalette.ColorRole.WindowText, self.text_color)
+        pal.setColor(QPalette.ColorRole.Text, self.text_color)
+        pal.setColor(QPalette.ColorRole.ButtonText, self.text_color)
+        pal.setColor(QPalette.ColorRole.Dark, self.shortcut_color)
+        pal.setColor(QPalette.ColorRole.Mid, self.shortcut_color)
+        self.setPalette(pal)
+
     def setRestoreFocusWidget(self, widget):
         """Виджет, которому вернуть фокус после показа меню (меню не забирает фокус)."""
         self._restore_focus_widget = widget
@@ -103,6 +108,8 @@ class StyleMenu(QMenu):
         QMenu.paintEvent(self, event)
         
     def showEvent(self, event):
+        # При показе меню подтягиваем актуальные цвета темы (смена Dark/Light)
+        self._apply_theme_colors()
         # Add extra padding to first and last items
         actions = self.actions()
         if actions:

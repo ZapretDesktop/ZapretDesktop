@@ -32,12 +32,13 @@ class BreadcrumbWidget(QWidget):
         
         self.setMinimumHeight(24)
         self.setMouseTracking(True)
-        self.setStyleSheet("""
-            BreadcrumbWidget {
+        from src.ui import theme
+        p = theme.palette()
+        self.setStyleSheet(f"""
+            BreadcrumbWidget {{
                 background-color: transparent;
-             
-                color: #969696;
-            }
+                color: {p.fg_muted};
+            }}
         """)
     
     def set_path(self, path_parts, modified_text=""):

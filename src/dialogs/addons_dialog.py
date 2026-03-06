@@ -16,6 +16,7 @@ from src.core.window_styles import apply_window_style
 from src.widgets.custom_combobox import CustomComboBox
 from src.widgets.custom_context_widgets import ContextLineEdit
 from src.widgets.style_menu import StyleMenu
+from src.ui import theme
 
 # Значение по умолчанию: один пункт Flowseal
 DEFAULT_ADDONS = [
@@ -61,49 +62,55 @@ class AddonsDialog(QDialog):
         self._create_ui()
 
     def _apply_styles(self):
-        self.setStyleSheet("""
-            QDialog { background-color: #181818; }
-            QLabel { color: #cccccc; }
-            QTableWidget::item { padding: 4px 8px; }
-            QTableWidget::item:selected { background-color: #0078d4; color: #ffffff; }
-            /* Поле ввода внутри таблицы (редактирование ячеек) */
-            QTableWidget QLineEdit {
-                background-color: #252526;
+        p = theme.palette()
+        self.setStyleSheet(
+            f"""
+            QDialog {{
+                background-color: {p.bg_window};
+                color: {p.fg_text};
+            }}
+            QLabel {{
+                color: {p.fg_text};
+            }}
+            QTableWidget::item {{
+                padding: 4px 8px;
+            }}
+            QTableWidget::item:selected {{
+                background-color: {p.accent};
                 color: #ffffff;
-                border: 1px solid #3c3c3c;
+            }}
+            /* Поле ввода внутри таблицы (редактирование ячеек) */
+            QTableWidget QLineEdit {{
+                background-color: {p.bg_panel};
+                color: {p.fg_text};
+                border: 1px solid {p.border};
                 border-radius: 4px;
                 padding: 2px 4px;
-                selection-background-color: #0078d4;
+                selection-background-color: {p.accent};
                 selection-color: #ffffff;
-            }
-            QTableWidget QLineEdit:focus {
-                border-color: #0078d4;
-            }
-            QPushButton {
+            }}
+            QTableWidget QLineEdit:focus {{
+                border-color: {p.accent};
+            }}
+            QPushButton {{
                 background-color: transparent;
-                color: #ffffff;
+                color: {p.fg_text};
                 border:none;
                 padding: 6px 14px;
                 border-radius: 4px;
-            }
-            QPushButton:hover {
-                background-color: #026ec1;
-                border: 1px solid #1282d7;
-            }
-
-            QPushButton:pressed {
-                background-color: #0078d4;
-                border: 1px solid #1282d7;
-            }
-
-            QPushButton:disabled {
-                background-color: #2D2D30;
-                color: #656565;
-            }
-            QPushButton:hover { background-color: #1177bb; }
-            QPushButton:pressed { background-color: #094770; }
-            QPushButton:disabled { background-color: #3c3c3c; color: #909090; }
-        """)
+            }}
+            QPushButton:hover {{
+                background-color: {p.accent};
+            }}
+            QPushButton:pressed {{
+                background-color: {p.accent};
+            }}
+            QPushButton:disabled {{
+                background-color: {p.bg_panel};
+                color: {p.fg_muted};
+            }}
+        """
+        )
 
     def _create_ui(self):
         layout = QVBoxLayout(self)
@@ -165,68 +172,14 @@ class AddonsDialog(QDialog):
         btn_layout = QHBoxLayout()
         btn_layout.addStretch()
         self.add_btn = QPushButton(tr("addons_add", self.lang))
-        self.add_btn.setStyleSheet('''
-            QPushButton {
-                border: 1px solid #2b2b2b;
-            }
-            QPushButton:hover {
-                background-color: #026ec1;
-                border: 1px solid #1282d7;
-            }
-
-            QPushButton:pressed {
-                background-color: #0078d4;
-                border: 1px solid #1282d7;
-            }
-
-            QPushButton:disabled {
-                background-color: #2D2D30;
-                color: #656565;
-            }''')
         self.add_btn.setCursor(Qt.CursorShape.PointingHandCursor)
         self.add_btn.clicked.connect(self._on_add)
         self.remove_btn = QPushButton(tr("addons_remove", self.lang))
-        self.remove_btn.setStyleSheet('''
-            QPushButton {
-                border: 1px solid #2b2b2b;
-            }
-            QPushButton:hover {
-                background-color: #026ec1;
-                border: 1px solid #1282d7;
-            }
-
-            QPushButton:pressed {
-                background-color: #0078d4;
-                border: 1px solid #1282d7;
-            }
-
-            QPushButton:disabled {
-                background-color: #2D2D30;
-                color: #656565;
-            }''')
         self.remove_btn.setCursor(Qt.CursorShape.PointingHandCursor)
         self.remove_btn.clicked.connect(self._on_remove)
         
        
         close_btn = QPushButton(tr("settings_ok", self.lang))
-        close_btn.setStyleSheet('''
-            QPushButton {
-                border: 1px solid #2b2b2b;
-            }
-            QPushButton:hover {
-                background-color: #026ec1;
-                border: 1px solid #1282d7;
-            }
-
-            QPushButton:pressed {
-                background-color: #0078d4;
-                border: 1px solid #1282d7;
-            }
-
-            QPushButton:disabled {
-                background-color: #2D2D30;
-                color: #656565;
-            }''')
         close_btn.setCursor(Qt.CursorShape.PointingHandCursor)
         close_btn.clicked.connect(self.accept)
         btn_layout.addWidget(self.add_btn)

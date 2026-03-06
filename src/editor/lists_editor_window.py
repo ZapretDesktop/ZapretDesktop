@@ -15,7 +15,6 @@ from src.dialogs.country_blocklist_dialog import CountryBlocklistDialog
 from src.widgets.custom_combobox import CustomComboBox
 from .line_number_editor import LineNumberPlainTextEdit
 from src.widgets.style_menu import StyleMenu
-import pywinstyles
 
 
 class ListsEditorWindow(StandardDialog):
@@ -52,8 +51,6 @@ class ListsEditorWindow(StandardDialog):
             icon=get_app_icon(),
             theme="dark"
         )
-        
-        pywinstyles.change_header_color(self, color="#181818")
         self.setWindowModality(Qt.WindowModality.NonModal)
         
         self.is_saving = False
@@ -106,11 +103,12 @@ class ListsEditorWindow(StandardDialog):
         # Статус: сообщение | строка, столбец
         status_layout = QHBoxLayout()
         self.status_label = QLabel()
-        self.status_label.setStyleSheet("color: gray; font-size: 11px;")
+        from src.ui import theme
+        self.status_label.setStyleSheet(theme.muted_label_style())
         status_layout.addWidget(self.status_label)
         status_layout.addStretch()
         self.position_label = QLabel()
-        self.position_label.setStyleSheet("color: gray; font-size: 11px;")
+        self.position_label.setStyleSheet(theme.muted_label_style())
         status_layout.addWidget(self.position_label)
         layout.addLayout(status_layout)
         
@@ -212,12 +210,12 @@ class ListsEditorWindow(StandardDialog):
         if not filename:
             return
         if self.editor.document().isModified():
-            reply = QMessageBox.question(
-                self, tr('test_error_title', self.language),
-                tr('targets_unsaved_changes', self.language),
-                QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No,
-                QMessageBox.StandardButton.No
-            )
+            msg = QMessageBox(self)
+            msg.setWindowTitle(tr('test_error_title', self.language))
+            msg.setText(tr('targets_unsaved_changes', self.language))
+            msg.setStandardButtons(QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No)
+            msg.setDefaultButton(QMessageBox.StandardButton.No)
+            reply = msg.exec()
             if reply != QMessageBox.StandardButton.Yes:
                 self.file_combo.blockSignals(True)
                 self.file_combo.setCurrentText(getattr(self, '_current_file', self.LIST_FILES[0]))

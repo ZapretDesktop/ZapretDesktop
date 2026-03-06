@@ -8,7 +8,7 @@ from PyQt6.QtGui import QTextDocument
 from src.core.translator import tr
 from src.widgets.custom_checkbox import CustomCheckBox
 from src.widgets.custom_context_widgets import ContextLineEdit
-import pywinstyles
+from src.core.window_styles import apply_window_style
 
 
 class FindReplaceDialog(QDialog):
@@ -22,7 +22,7 @@ class FindReplaceDialog(QDialog):
         from src.core.embedded_assets import get_app_icon
         self.setWindowIcon(get_app_icon())
         
-        pywinstyles.change_header_color(self, color="#181818")
+        apply_window_style(self)
         self.setWindowTitle(tr('find_replace_title', language))
         self.setWindowFlags(Qt.WindowType.Tool)
         self.setWindowModality(Qt.WindowModality.NonModal)
@@ -68,7 +68,8 @@ class FindReplaceDialog(QDialog):
         layout.addLayout(row2)
         
         self.status_label = QLabel()
-        self.status_label.setStyleSheet("color: gray; font-size: 11px;")
+        from src.ui import theme
+        self.status_label.setStyleSheet(theme.muted_label_style())
         layout.addWidget(self.status_label)
         
         self.btn_find_next.setEnabled(False)

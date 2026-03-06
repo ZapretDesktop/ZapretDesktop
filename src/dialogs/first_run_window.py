@@ -12,7 +12,6 @@ from src.ui.standard_dialog import StandardDialog
 from src.widgets.custom_checkbox import CustomCheckBox
 from src.widgets.custom_combobox import CustomComboBox
 from src.core.translator import tr
-import pywinstyles
 
 
 class FirstRunWindow(StandardDialog):
@@ -37,8 +36,6 @@ class FirstRunWindow(StandardDialog):
         self.lang = lang
         self.setWindowModality(Qt.WindowModality.ApplicationModal)
         
-
-        pywinstyles.change_header_color(self, color="#181818")
         layout = self.getContentLayout()
         layout.setContentsMargins(20, 20, 20, 20)
         layout.setSpacing(16)
@@ -46,7 +43,9 @@ class FirstRunWindow(StandardDialog):
         # Приветствие
         welcome = QLabel(tr('first_run_welcome', self.lang))
         welcome.setWordWrap(True)
-        welcome.setStyleSheet("color: #D4D4D4; font-size: 13px;")
+        from src.ui import theme
+        p = theme.palette()
+        welcome.setStyleSheet(f"color: {p.fg_text}; font-size: 13px;")
         layout.addWidget(welcome)
 
         # Язык

@@ -139,6 +139,9 @@ TRANSLATIONS = {
         'tray_restart_application': 'Перезапустить программу',
         'tray_restart_strategy': 'Перезапустить стратегию',
         'tray_program_parameters': 'Параметры программы',
+        'settings_theme': 'Цветовая тема',
+        'settings_theme_dark': 'Тёмная',
+        'settings_theme_light': 'Светлая',
         'tray_quit': 'Выход',
         
         # Test Window
@@ -670,8 +673,11 @@ TRANSLATIONS = {
         'tray_restart_application': 'Restart application',
         'tray_restart_strategy': 'Restart strategy',
         'tray_program_parameters': 'Program Parameters',
+        'settings_theme': 'Color Theme',
+        'settings_theme_dark': 'Dark',
+        'settings_theme_light': 'Light',
         'tray_quit': 'Quit',
-        
+
         # Test Window
         'test_window_title': 'Testing',
         'test_menu_strategies': 'Strategies',

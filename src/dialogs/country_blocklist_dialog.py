@@ -14,7 +14,6 @@ from src.widgets.custom_combobox import CustomComboBox
 from src.widgets.custom_checkbox import CustomCheckBox
 from src.widgets.custom_context_widgets import ContextLineEdit, ContextSpinBox
 from src.core.path_utils import get_winws_path
-import pywinstyles
 
 try:
     import requests
@@ -124,8 +123,6 @@ class CountryBlocklistDialog(QDialog):
         
         from src.core.embedded_assets import get_app_icon
         self.setWindowIcon(get_app_icon())
-        
-        pywinstyles.change_header_color(self, color="#181818")
         self.setWindowTitle(tr('country_blocklist_title', language))
         self.setMinimumWidth(420)
         self.resize(450, 280)
@@ -162,7 +159,8 @@ class CountryBlocklistDialog(QDialog):
         layout.addLayout(form)
         
         self.progress_label = QLabel()
-        self.progress_label.setStyleSheet('color: gray; font-size: 11px;')
+        from src.ui import theme
+        self.progress_label.setStyleSheet(theme.muted_label_style())
         layout.addWidget(self.progress_label)
         
         btns = QHBoxLayout()

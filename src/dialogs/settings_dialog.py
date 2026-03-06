@@ -9,11 +9,14 @@ from PyQt6.QtWidgets import (
 from src.widgets.custom_checkbox import CustomCheckBox as QCheckBox
 from src.widgets.custom_context_widgets import ContextLineEdit
 from src.core.path_utils import get_base_path
-from PyQt6.QtCore import Qt
+from PyQt6.QtCore import Qt, QTimer
 from PyQt6.QtGui import QIcon, QCursor
 from src.core.translator import tr
 from src.widgets.custom_combobox import CustomComboBox
 from src.core.window_styles import apply_window_style
+from src.core import native_window_styles
+from src.ui import theme
+
 
 class SettingsDialog(QDialog):
     """Диалоговое окно настроек со списком категорий слева"""
@@ -37,59 +40,63 @@ class SettingsDialog(QDialog):
         
         self._apply_styles()
         self._create_ui()
+
+    def showEvent(self, event):
+        """Делаем окно настроек с единственной системной кнопкой — крестиком."""
+        super().showEvent(event)
+        # Небольшая задержка, чтобы рамка успела инициализироваться
+        QTimer.singleShot(
+            50,
+            lambda: native_window_styles.set_caption_buttons(
+                self,
+                minimize=False,
+                maximize=False,
+                close=True,
+            ),
+        )
     
     def _apply_styles(self):
-        """Тёмная тема"""
-        self.setStyleSheet("""
-            QDialog { background-color: #181818; }
-            QGroupBox {
+        p = theme.palette()
+        self.setStyleSheet(f"""
+            QDialog {{ background-color: {p.bg_window}; }}
+            QGroupBox {{
                 font-weight: bold;
-                border: 1px solid #3c3c3c;
+                border: 1px solid {p.border};
                 border-radius: 6px;
                 margin-top: 12px;
                 padding-top: 10px;
-            }
-            QGroupBox::title { subcontrol-origin: margin; left: 10px; padding: 0 5px; color: #cccccc; }
-            QLabel { color: #cccccc; }
-            QCheckBox { color: #cccccc; spacing: 8px; }
-            QListWidget {
-                background-color: #1f1f1f;
-                color: #cccccc;
-                selection-background-color: #0078d4;
+            }}
+            QGroupBox::title {{ subcontrol-origin: margin; left: 10px; padding: 0 5px; color: {p.fg_text}; }}
+            QLabel {{ color: {p.fg_text}; }}
+            QCheckBox {{ color: {p.fg_text}; spacing: 8px; }}
+            QListWidget {{
+                background-color: {p.bg_panel};
+                color: {p.fg_text};
+                selection-background-color: {p.accent};
                 selection-color: #ffffff;
                 outline: none;
                 padding: 2px 0px;
-                border: 1px solid #2b2b2b;
+                border: 1px solid {p.border};
                 border-radius: 6px;
                 font-size: 12px;
-            }
-            QListWidget::item {
+            }}
+            QListWidget::item {{
                 padding: 4px 8px;
                 border: none;
                 min-height: 20px;
                 margin: 2px 4px;
-                border-radius: 6px; 
-            }
-            QListWidget::item:first {
-                margin-top: 4px;
-            }
-
-            QListWidget::item:disabled {
-                color: #909090;
-            }
-            QListWidget::item:last {
-                margin-bottom: 4px;
-            }
-            QListWidget::item:hover {
                 border-radius: 6px;
-            }
-            QListWidget::item:selected {
-                background-color: #0078d4;
+            }}
+            QListWidget::item:first {{ margin-top: 4px; }}
+            QListWidget::item:disabled {{ color: {p.fg_muted}; }}
+            QListWidget::item:last {{ margin-bottom: 4px; }}
+            QListWidget::item:hover {{ border-radius: 6px; }}
+            QListWidget::item:selected {{
+                background-color: {p.accent};
                 font-weight: bold;
                 border-radius: 6px;
-            }
-            CustomComboBox:focus { border-color: #0078d4; }
-             
+            }}
+            CustomComboBox:focus {{ border-color: {p.accent}; }}
         """)
     
     def _create_ui(self):
@@ -130,7 +137,7 @@ class SettingsDialog(QDialog):
             tr('settings_category_exit_behavior', self.lang), # 3
             tr('settings_category_autostart', self.lang),     # 4
             tr('settings_category_filters', self.lang),       # 5
-            tr('settings_category_app_restart', self.lang),   # 6 - Автоперезапуск приложений
+            tr('settings_category_app_restart', self.lang),   # 6  
             tr('settings_category_b_flag', self.lang),        # 7
             tr('settings_category_update', self.lang),        # 8
         ]
@@ -143,9 +150,10 @@ class SettingsDialog(QDialog):
         nothing_layout.setContentsMargins(0, 0, 0, 0)
         self._nothing_label = QLabel(tr('settings_nothing_found', self.lang))
         self._nothing_label.setAlignment(Qt.AlignmentFlag.AlignCenter)
-        self._nothing_label.setStyleSheet('color: #808080; font-size: 13px;')
+        self._nothing_label.setStyleSheet(theme.nothing_found_style())
         nothing_layout.addWidget(self._nothing_label)
-        nothing_widget.setStyleSheet('background-color: #181818; border: 1px solid #2b2b2b; border-radius: 6px;')
+        p = theme.palette()
+        nothing_widget.setStyleSheet(f'background-color: {p.bg_window}; {theme.border_style()} border-radius: 6px;')
         left_list_stack.addWidget(nothing_widget)
         left_list_stack.setCurrentIndex(0)
         self._left_list_stack = left_list_stack
@@ -350,7 +358,8 @@ class SettingsDialog(QDialog):
         self.apps_table.setSelectionBehavior(QTableWidget.SelectionBehavior.SelectRows)
         self.apps_table.setSelectionMode(QTableWidget.SelectionMode.SingleSelection)
         self.apps_table.setShowGrid(False)
-        self.apps_table.setStyleSheet("QTableWidget { background-color: #1f1f1f; border: 1px solid #2b2b2b; color: #cccccc; }")
+        p = theme.palette()
+        self.apps_table.setStyleSheet(f"QTableWidget {{ background-color: {p.bg_panel}; {theme.border_style()} color: {p.fg_text}; }}")
         # Заполняем из настроек
         for name in self.settings.get('auto_restart_apps', []):
             row = self.apps_table.rowCount()

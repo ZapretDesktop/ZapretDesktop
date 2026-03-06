@@ -7,8 +7,7 @@ import os
 from PyQt6.QtCore import Qt
 from PyQt6.QtWidgets import QDialog, QVBoxLayout, QHBoxLayout, QWidget
 from PyQt6.QtGui import QIcon, QGuiApplication
-
-import pywinstyles
+from src.core.window_styles import apply_window_style
 
 class _TitleBarCompat:
     """Compatibility object: addLeftWidget/addCenterWidget add to a top bar (for menu bar, etc.)."""
@@ -30,7 +29,8 @@ class StandardDialog(QDialog):
     
     def __init__(self, parent=None, title="Dialog", width=500, height=400, icon_path=None, icon=None, theme="dark"):
         super().__init__(parent)
-        pywinstyles.change_header_color(self, color="#181818")  
+        # Применяем оформление заголовка через нашу обёртку (Windows 10/11)
+        apply_window_style(self)
         self.setWindowTitle(title)
         self.setMinimumSize(300, 200)
         self.resize(width, height)

@@ -15,6 +15,7 @@ from src.core.translator import tr
 from src.core.config_manager import ConfigManager
 from src.core.path_utils import get_winws_path
 from src.core.embedded_assets import get_app_icon
+from src.ui import theme
 
 import os
 
@@ -45,7 +46,8 @@ class WinwsSetupDialog(StandardDialog):
 
         message = QLabel(tr("winws_setup_message", self.lang))
         message.setWordWrap(True)
-        message.setStyleSheet("color: #D4D4D4; font-size: 13px;")
+        p = theme.palette()
+        message.setStyleSheet(f"color: {p.fg_text}; font-size: 13px;")
         layout.addWidget(message)
 
         path_label = QLabel(tr("winws_setup_path_label", self.lang))

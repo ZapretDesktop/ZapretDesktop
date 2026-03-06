@@ -51,7 +51,8 @@ class BinCreatorDialog(QDialog):
         # Поле для hex-содержимого
         layout.addWidget(QLabel(tr('bin_creator_hex_label', language)))
         self.hex_edit = ContextPlainTextEdit()
-        self.hex_edit.setStyleSheet('border:1px solid #2b2b2b;')
+        from src.ui import theme
+        self.hex_edit.setStyleSheet(theme.border_style())
         self.hex_edit.setPlaceholderText(tr('bin_creator_hex_placeholder', language))
         self.hex_edit.setFont(QFont("Consolas", 10))
         layout.addWidget(self.hex_edit, 1)

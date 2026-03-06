@@ -11,7 +11,7 @@ from src.widgets.animated_progressbar import AnimatedProgressBar
 from src.ui.standard_dialog import StandardDialog
 from src.core.embedded_assets import get_app_icon
 from src.core.translator import tr
-import pywinstyles
+from src.ui import theme
 
 
 class VSUpdateDialog(StandardDialog):
@@ -34,8 +34,6 @@ class VSUpdateDialog(StandardDialog):
         self.setWindowFlags(
             Qt.WindowType.Dialog | Qt.WindowType.WindowCloseButtonHint | Qt.WindowType.CustomizeWindowHint
         )
-        
-        pywinstyles.change_header_color(self, color="#181818")
         self._cancelled = False
         
         layout = self.getContentLayout()
@@ -44,23 +42,28 @@ class VSUpdateDialog(StandardDialog):
         
         # Заголовок
         self.title_label = QLabel(tr('update_title', self.language))
-        self.title_label.setStyleSheet("""
-            QLabel {
-                color: #FFFFFF;
+        p = theme.palette()
+        self.title_label.setStyleSheet(
+            f"""
+            QLabel {{
+                color: {p.fg_text};
                 font-size: 20px;
                 font-weight: 600;
-            }
-        """)
+            }}
+        """
+        )
         layout.addWidget(self.title_label)
         
         # Статус
         self.status_label = QLabel(tr('update_checking', self.language))
-        self.status_label.setStyleSheet("""
-            QLabel {
-                color: #D4D4D4;
+        self.status_label.setStyleSheet(
+            f"""
+            QLabel {{
+                color: {theme.palette().fg_muted};
                 font-size: 13px;
-            }
-        """)
+            }}
+        """
+        )
         layout.addWidget(self.status_label)
         
         # Прогресс-бар
@@ -72,17 +75,20 @@ class VSUpdateDialog(StandardDialog):
         self.details_text = QTextEdit()
         self.details_text.setReadOnly(True)
         self.details_text.setMaximumHeight(80)
-        self.details_text.setStyleSheet("""
-            QTextEdit {
-                background-color: #1E1E1E;
-                color: #CCCCCC;
-                border: 1px solid #3C3C3C;
+        dp = theme.palette()
+        self.details_text.setStyleSheet(
+            f"""
+            QTextEdit {{
+                background-color: {dp.bg_panel};
+                color: {dp.fg_text};
+                border: 1px solid {dp.border};
                 border-radius: 6px;
                 padding: 8px;
                 font-family: 'Consolas', 'Courier New', monospace;
                 font-size: 11px;
-            }
-        """)
+            }}
+        """
+        )
         self.details_text.hide()
         layout.addWidget(self.details_text)
         

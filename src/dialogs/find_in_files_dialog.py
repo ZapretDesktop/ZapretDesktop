@@ -12,7 +12,7 @@ from PyQt6.QtGui import QFont
 from src.core.translator import tr
 from src.widgets.custom_checkbox import CustomCheckBox
 from src.widgets.custom_context_widgets import ContextLineEdit
-import pywinstyles
+from src.core.window_styles import apply_window_style
 
 
 class SearchInFilesThread(QThread):
@@ -75,7 +75,7 @@ class FindInFilesDialog(QDialog):
         from src.core.embedded_assets import get_app_icon
         self.setWindowIcon(get_app_icon())
 
-        pywinstyles.change_header_color(self, color="#181818")
+        apply_window_style(self)
         self.setWindowTitle(tr('find_in_files_title', language))
         self.setWindowFlags(Qt.WindowType.Tool)
         self.setWindowModality(Qt.WindowModality.NonModal)
@@ -102,18 +102,20 @@ class FindInFilesDialog(QDialog):
         layout.addLayout(row1)
 
         self.status_label = QLabel()
-        self.status_label.setStyleSheet("color: gray; font-size: 11px;")
+        from src.ui import theme
+        self.status_label.setStyleSheet(theme.muted_label_style())
         layout.addWidget(self.status_label)
 
         self.results_list = QListWidget()
         self.results_list.setFont(QFont("Consolas", 9))
         self.results_list.setSelectionMode(QAbstractItemView.SelectionMode.SingleSelection)
         self.results_list.itemDoubleClicked.connect(self._on_result_double_clicked)
-        self.results_list.setStyleSheet("""
-            QListWidget { background-color: #1f1f1f; border: 1px solid #2b2b2b; color: #cccccc; }
-            QListWidget::item { padding: 2px 4px; }
-            QListWidget::item:hover { background-color: #2a2d2e; }
-            QListWidget::item:selected { background-color: #04395e; color: #ffffff; }
+        p = theme.palette()
+        self.results_list.setStyleSheet(f"""
+            QListWidget {{ background-color: {p.bg_panel}; {theme.border_style()} color: {p.fg_text}; }}
+            QListWidget::item {{ padding: 2px 4px; }}
+            QListWidget::item:hover {{ background-color: {p.hover_bg}; }}
+            QListWidget::item:selected {{ background-color: {p.accent}; color: #ffffff; }}
         """)
         layout.addWidget(self.results_list, 1)
 

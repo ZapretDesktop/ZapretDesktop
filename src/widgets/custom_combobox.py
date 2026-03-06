@@ -4,6 +4,7 @@ from PyQt6.QtCore import Qt, QRectF, QSize, pyqtSignal, QPoint, QEvent
 from PyQt6.QtSvg import QSvgRenderer
 from .style_menu import StyleMenu
 from src.core.embedded_assets import get_svg_qbytearray
+from src.ui import theme
 
 
 class CustomComboBox(QWidget):
@@ -30,26 +31,15 @@ class CustomComboBox(QWidget):
         # Текст выбранного элемента
         self.text_label = QLabel()
         self.text_label.setCursor(Qt.CursorShape.PointingHandCursor)
-        self.text_label.setStyleSheet("""
-            QLabel {
-                background-color: transparent;
-                color: #D4D4D4;
-                border: none;
-            }
-        """)
+        self._update_text_style()
         layout.addWidget(self.text_label, 1)
         
         # Кнопка со стрелкой (вниз/вверх)
         self.arrow_button = QPushButton()
         self.arrow_button.setCursor(Qt.CursorShape.PointingHandCursor)
         self.arrow_button.setFixedWidth(20)
-        self.arrow_button.setStyleSheet("""
-            QPushButton {
-                background-color: transparent;
-                border: none;
-                padding: 0px;
-            }
-        """)
+        # Фон и рамка не задаём, чтобы использовался стиль из темы
+        self.arrow_button.setStyleSheet("QPushButton { background-color: transparent; border: none; padding: 0px; }")
         
         # Иконка стрелки вниз из встроенных ресурсов
         data = get_svg_qbytearray("chevron-down")
@@ -63,12 +53,16 @@ class CustomComboBox(QWidget):
             self.chevron_renderer = None
         if self.chevron_renderer is None:
             self.arrow_button.setText("▼")
-            self.arrow_button.setStyleSheet(self.arrow_button.styleSheet() + """
-                QPushButton {
-                    color: #D4D4D4;
+            p = theme.palette()
+            self.arrow_button.setStyleSheet(
+                self.arrow_button.styleSheet()
+                + f"""
+                QPushButton {{
+                    color: {p.fg_text};
                     font-size: 10px;
-                }
-            """)
+                }}
+            """
+            )
         
         layout.addWidget(self.arrow_button)
         
@@ -89,9 +83,6 @@ class CustomComboBox(QWidget):
         self.setAttribute(Qt.WidgetAttribute.WA_OpaquePaintEvent, False)
         self.setAutoFillBackground(False)
         
-        # Стили для текста (без фона - фон рисуется в paintEvent)
-        self._update_text_style()
-        
         # Устанавливаем минимальную высоту
         self.setMinimumHeight(26)
         
@@ -111,14 +102,19 @@ class CustomComboBox(QWidget):
         # Определяем цвета в зависимости от состояния
         # Используем альфа-канал для полупрозрачности (180/255 ≈ 70% непрозрачности)
         # Это позволяет скроллбару накладываться поверх виджета
+        p = theme.palette()
         if not self.isEnabled():
-            border_color = QColor(50, 50, 50, 200)  # Полупрозрачная граница
-            background_color = QColor(35, 35, 35, 180)  # Полупрозрачный фон
+            # Полупрозрачные варианты границы/фона из палитры
+            border_color = QColor(150, 150, 150, 120) if theme.is_light() else QColor(50, 50, 50, 200)
+            background_color = QColor(240, 240, 240, 180) if theme.is_light() else QColor(35, 35, 35, 180)
         else:
-            # Граница: синяя при фокусе, серая без фокуса
-            border_color = QColor(0, 122, 204, 220) if self.hasFocus() else QColor(60, 60, 60, 200)
-            # Фон: полупрозрачный (#313131 с альфа ~70%)
-            background_color = QColor(24, 24, 24)  # #313131 с альфа-каналом
+            # Граница: акцент при фокусе, мягкая рамка без фокуса
+            if theme.is_light():
+                border_color = QColor(0, 120, 215, 220) if self.hasFocus() else QColor(200, 200, 200, 200)
+                background_color = QColor(255, 255, 255, 230)
+            else:
+                border_color = QColor(0, 122, 204, 220) if self.hasFocus() else QColor(60, 60, 60, 200)
+                background_color = QColor(24, 24, 24)
         
         # Рисуем полупрозрачный фон
         painter.setPen(Qt.PenStyle.NoPen)
@@ -229,6 +225,19 @@ class CustomComboBox(QWidget):
                     self._step_next()
                 return True
         return super().eventFilter(obj, event)
+
+    def _update_text_style(self):
+        """Обновляет стиль текста в зависимости от темы."""
+        p = theme.palette()
+        self.text_label.setStyleSheet(
+            f"""
+            QLabel {{
+                background-color: transparent;
+                color: {p.fg_text};
+                border: none;
+            }}
+        """
+        )
     
     def addItem(self, text, userData=None):
         """Добавить элемент в список"""
@@ -455,10 +464,11 @@ class CustomComboBox(QWidget):
 
     def _update_text_style(self, placeholder: bool = False):
         """Обновить стиль текста в зависимости от состояния и типа (placeholder/обычный)."""
+        p = theme.palette()
         if not self.isEnabled():
-            color = "#555555"
+            color = p.fg_muted
         else:
-            color = "#808080" if placeholder or self.current_index == -1 else "#D4D4D4"
+            color = p.fg_muted if placeholder or self.current_index == -1 else p.fg_text
         self.text_label.setStyleSheet(f"""
             QLabel {{
                 background-color: transparent;

@@ -11,7 +11,6 @@ from src.widgets.custom_context_widgets import ContextLineEdit, ContextSpinBox
 from src.ui.standard_dialog import StandardDialog
 from src.core.translator import tr
 import os
-import pywinstyles
 
 def StrategyCreatorWindow(parent=None):
     """Функция для открытия окна создания стратегии"""
@@ -44,9 +43,6 @@ class RuleDialog(StandardDialog):
      
     def init_ui(self):
         """Инициализация интерфейса"""
-
-        pywinstyles.change_header_color(self, color="#181818")  
-    
         # Используем content_layout из StandardDialog
         layout = self.getContentLayout()
         
@@ -69,11 +65,8 @@ class RuleDialog(StandardDialog):
         self.tabs.setCursor(Qt.CursorShape.PointingHandCursor)
         # Левая граница только у первой вкладки ("Фильтры трафика") как в редакторе для вкладки "Списки"
         tab_bar = self.tabs.tabBar()
-        tab_bar.setStyleSheet("""
-            QTabBar::tab:first {
-                border-left: 1px solid #2b2b2b;
-            }
-        """)
+        from src.ui import theme
+        tab_bar.setStyleSheet(theme.tab_bar_first_border_style())
         
         # Вкладка 1: Фильтры трафика
         filters_tab = QWidget()

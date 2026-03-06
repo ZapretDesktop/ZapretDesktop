@@ -23,8 +23,7 @@ from src.widgets.label_menu_widget import LabelMenuWidget
 from src.widgets.breadcrumb_widget import BreadcrumbWidget
 from .editor_highlighters import ListHighlighter, EtcHighlighter, BatHighlighter
 from .editor_autocomplete import EditorAutocomplete
-import pywinstyles
-
+from src.ui import theme
 
 def get_etcdrivers_folder():
     system_root = os.environ.get('SystemRoot', 'C:\\Windows')
@@ -84,32 +83,16 @@ class EditorTabContent(QWidget):
 
         # Список файлов + виджет «ничего не найдено» в QStackedWidget
         self.file_list = QListWidget()
-        self.file_list.setStyleSheet(''' QListWidget {
-    background-color: #1f1f1f;
+        p = theme.palette()
+        self.file_list.setStyleSheet(f'''QListWidget {{
+    background-color: {p.bg_panel};
     border: none;
-   
-    color: #cccccc;
-}
-
-QListWidget::item {
-    height: 20px;
-  
-}
-
-QListWidget::item:hover {
-    background-color: #2a2d2e;
- 
-}
-
-QListWidget::item:selected {
-    background-color: #04395e;
-    color: #ffffff;
-}
-
-QListWidget::item:selected:!active {
-    background-color: #04395e;
-    color: #ffffff;
-}''')
+    color: {p.fg_text};
+}}
+QListWidget::item {{ height: 20px; }}
+QListWidget::item:hover {{ background-color: {p.hover_bg}; }}
+QListWidget::item:selected {{ background-color: {p.accent}; color: #ffffff; }}
+QListWidget::item:selected:!active {{ background-color: {p.accent}; color: #ffffff; }}''')
         self.file_list.setAlternatingRowColors(True)
         self.file_list.setContextMenuPolicy(Qt.ContextMenuPolicy.CustomContextMenu)
         self.file_list.customContextMenuRequested.connect(self._on_file_list_context_menu)
@@ -125,9 +108,9 @@ QListWidget::item:selected:!active {
         nothing_layout.setContentsMargins(0, 0, 0, 0)
         nothing_label = QLabel(tr('settings_nothing_found', language))
         nothing_label.setAlignment(Qt.AlignmentFlag.AlignCenter)
-        nothing_label.setStyleSheet('color: #808080; font-size: 13px;')
+        nothing_label.setStyleSheet(theme.nothing_found_style())
         nothing_layout.addWidget(nothing_label)
-        nothing_widget.setStyleSheet('background-color: #1f1f1f;')
+        nothing_widget.setStyleSheet(theme.panel_bg_style())
 
         self._left_list_stack.addWidget(nothing_widget)  # index 1: «ничего не найдено»
         self._left_list_stack.setCurrentIndex(0)
@@ -168,7 +151,7 @@ QListWidget::item:selected:!active {
             cmd_layout.setContentsMargins(0, 0, 0, 0)
             cmd_layout.setSpacing(0)
             cmd_label = QLabel(tr('editor_cmd_panel_title', self.language))
-            cmd_label.setStyleSheet("color: #cccccc; font-size: 11px; padding: 2px 6px;")
+            cmd_label.setStyleSheet(f"color: {theme.palette().fg_text}; font-size: 11px; padding: 2px 6px;")
             cmd_layout.addWidget(cmd_label)
 
             # Кастомный LineNumberPlainTextEdit как интерактивная консоль cmd.exe (и ввод, и вывод)
@@ -176,7 +159,7 @@ QListWidget::item:selected:!active {
             # Для консоли отключаем подсветку текущей строки
             if hasattr(self.command_console, "set_highlight_current_line_enabled"):
                 self.command_console.set_highlight_current_line_enabled(False)
-            self.command_console.setStyleSheet("background-color: #141414; border: none; color: #ffffff;")
+            self.command_console.setStyleSheet(theme.console_style())
             self.command_console.setFont(QFont("Consolas", 9))
             self.command_console.installEventFilter(self)
             # Курсор всегда должен быть только на строке ввода (после '>')
@@ -222,7 +205,7 @@ QListWidget::item:selected:!active {
             from PyQt6.QtWidgets import QPlainTextEdit
             self.zapret_hosts_view = QPlainTextEdit()
             self.zapret_hosts_view.setReadOnly(True)
-            self.zapret_hosts_view.setStyleSheet("background-color: #181818; border: none; color: #bbbbbb;")
+            self.zapret_hosts_view.setStyleSheet(theme.console_style())
             self.zapret_hosts_view.setFont(QFont("Consolas", 9))
             right_splitter.addWidget(self.zapret_hosts_view)
             right_splitter.setStretchFactor(0, 3)
@@ -796,8 +779,6 @@ class UnifiedEditorWindow(StandardDialog):
             icon=get_app_icon(),
             theme="dark"
         )
-        
-        pywinstyles.change_header_color(self, color="#181818")
         self.setWindowModality(Qt.WindowModality.NonModal)
         # Явно включаем кнопки свернуть/развернуть, чтобы они не пропадали
         self.setWindowFlags(
@@ -812,7 +793,7 @@ class UnifiedEditorWindow(StandardDialog):
         content = self.getContentLayout()
         
         self.status_bar = self.addStatusBar()
-        self.status_bar.setStyleSheet("QStatusBar { color: #969696; font-size: 11px; }")
+        self.status_bar.setStyleSheet(f"QStatusBar {{ {theme.muted_label_style()} }}")
         
         # Хлебные крошки слева (вместо сообщения "Файл сохранен")
         self._breadcrumb_widget = BreadcrumbWidget()
@@ -825,9 +806,10 @@ class UnifiedEditorWindow(StandardDialog):
         # Сначала создаём виджет позиции (будет обновляться в update_editor_status)
         self._position_widget = QLabel("")
         self._position_widget.setCursor(Qt.CursorShape.PointingHandCursor)
-        self._position_widget.setStyleSheet("""
-            QLabel { color: #969696; }
-            QLabel:hover { color: #d0d0d0; text-decoration: underline; }
+        p = theme.palette()
+        self._position_widget.setStyleSheet(f"""
+            QLabel {{ color: {p.fg_muted}; }}
+            QLabel:hover {{ color: {p.fg_text}; text-decoration: underline; }}
         """)
         self._position_widget.mousePressEvent = lambda e: self.go_to_line()  # type: ignore[method-assign]
         self.status_bar.addPermanentWidget(self._position_widget)
@@ -855,11 +837,7 @@ class UnifiedEditorWindow(StandardDialog):
         self.tabs.setCursor(Qt.CursorShape.PointingHandCursor)
         # Левая граница только у первой вкладки ("Списки")
         tab_bar = self.tabs.tabBar()
-        tab_bar.setStyleSheet("""
-            QTabBar::tab:first {
-                border-left: 1px solid #2b2b2b;
-            }
-        """)
+        tab_bar.setStyleSheet(theme.tab_bar_first_border_style())
 
         self.tab_lists = EditorTabContent(self, lists_folder, LIST_FILES, self.language, is_lists_tab=True, tab_kind='lists')
        

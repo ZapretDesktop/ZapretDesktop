@@ -27,7 +27,7 @@ if exist "dist" rmdir /s /q dist
 
 echo.
 echo [3/4] Building with PyInstaller...
-pyinstaller --noconfirm --onefile --windowed --name ZapretDesktop --icon "icon.ico" --hidden-import pywinstyles --hidden-import PyQt6.QtSvg --noupx ZapretDesktop.py
+pyinstaller --noconfirm --onefile --windowed --name ZapretDesktop --icon "icon.ico" --hidden-import PyQt6.QtSvg --noupx ZapretDesktop.py
 
 if errorlevel 1 (
     echo.

@@ -27,11 +27,7 @@ class AppUpdater:
     def get_current_version(self):
         """Получает текущую установленную версию из константы VERSION."""
         return VERSION
-    
-    def save_version(self, version):
-        """Сохраняет версию (сейчас версия приложения задаётся константой VERSION, конфиг не обновляется)."""
-        # Версию и md5 больше не храним в config.json, чтобы она контролировалась только из кода.
-        return
+  
     
     def check_for_updates(self):
         """Проверяет наличие обновлений на GitHub"""
@@ -157,8 +153,6 @@ class AppUpdater:
                 f.write(f'rmdir /S /Q "{os.path.dirname(exe_path)}" >nul 2>&1\n')  # Удаляем временную папку
                 f.write(f'del /F /Q "{update_script}" >nul 2>&1\n')  # Удаляем сам скрипт
             
-            # Сохраняем версию перед запуском скрипта обновления
-            self.save_version(version)
             
             # Запускаем скрипт обновления
             subprocess.Popen([update_script], shell=True, creationflags=subprocess.CREATE_NO_WINDOW)

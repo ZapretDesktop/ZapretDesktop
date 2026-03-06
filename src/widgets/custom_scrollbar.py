@@ -10,6 +10,7 @@ from PyQt6.QtCore import (
 from PyQt6.QtWidgets import QAbstractScrollArea, QApplication, QScrollBar, QListView, QTextEdit
 from PyQt6.QtGui import *
 from .custom_overlay_scrollbar import get_overlay_scrollbar_manager
+from src.ui import theme
 
 class OpacityAnimation(QObject):
     """Вспомогательный класс для анимации прозрачности"""
@@ -221,10 +222,18 @@ class ScrollbarEventFilter(QObject):
                     # Фиксированная ширина и радиус, анимируем только прозрачность
                     width = 12
                     radius = 4.0
-                    
+                    # Цвет фона дорожки и базовый цвет ползунка по теме
+                    p = theme.palette()
+                    track_bg = p.scrollbar_track
+                    # Преобразуем hex в RGB для rgba(...)
+                    h = track_bg.lstrip("#")
+                    try:
+                        handle_r, handle_g, handle_b = int(h[0:2], 16), int(h[2:4], 16), int(h[4:6], 16)
+                    except Exception:
+                        handle_r, handle_g, handle_b = 128, 128, 128
                     v_scrollbar.setStyleSheet(f"""
                     QScrollBar:vertical {{
-                        background: transparent;
+                        background: {track_bg};
                         width: {width}px;
                         margin: 0px;
                         border: none;
@@ -234,18 +243,18 @@ class ScrollbarEventFilter(QObject):
                     }}
                     
                     QScrollBar::handle:vertical {{
-                        background-color: rgba(128, 128, 128, {opacity * 0.4});
+                        background-color: rgba({handle_r}, {handle_g}, {handle_b}, {opacity * 0.4});
                         border-radius: {radius}px;
                         min-height: 40px;
                         border: none;
                     }}
                     
                     QScrollBar::handle:vertical:hover {{
-                        background-color: rgba(144, 144, 144, {min(opacity * 0.7, 0.7)});
+                        background-color: rgba({handle_r}, {handle_g}, {handle_b}, {min(opacity * 0.7, 0.7)});
                     }}
                     
                     QScrollBar::handle:vertical:pressed {{
-                        background-color: rgba(160, 160, 160, {min(opacity * 0.8, 0.8)});
+                        background-color: rgba({handle_r}, {handle_g}, {handle_b}, {min(opacity * 0.8, 0.8)});
                     }}
                     
                     QScrollBar::add-line:vertical, QScrollBar::sub-line:vertical {{
@@ -270,10 +279,16 @@ class ScrollbarEventFilter(QObject):
                     # Фиксированная высота и радиус, анимируем только прозрачность
                     height = 12
                     radius = 0
-                    
+                    p = theme.palette()
+                    track_bg = p.scrollbar_track
+                    h_hex = track_bg.lstrip("#")
+                    try:
+                        handle_r, handle_g, handle_b = int(h_hex[0:2], 16), int(h_hex[2:4], 16), int(h_hex[4:6], 16)
+                    except Exception:
+                        handle_r, handle_g, handle_b = 128, 128, 128
                     h_scrollbar.setStyleSheet(f"""
                     QScrollBar:horizontal {{
-                        background: transparent;
+                        background: {track_bg};
                         height: {height}px;
                         margin: 0px;
                         border: none;
@@ -283,18 +298,18 @@ class ScrollbarEventFilter(QObject):
                     }}
                     
                     QScrollBar::handle:horizontal {{
-                        background-color: rgba(128, 128, 128, {opacity * 0.4});
+                        background-color: rgba({handle_r}, {handle_g}, {handle_b}, {opacity * 0.4});
                         border-radius: {radius}px;
                         min-width: 40px;
                         border: none;
                     }}
                     
                     QScrollBar::handle:horizontal:hover {{
-                        background-color: rgba(144, 144, 144, {min(opacity * 0.7, 0.7)});
+                        background-color: rgba({handle_r}, {handle_g}, {handle_b}, {min(opacity * 0.7, 0.7)});
                     }}
                     
                     QScrollBar::handle:horizontal:pressed {{
-                        background-color: rgba(160, 160, 160, {min(opacity * 0.8, 0.8)});
+                        background-color: rgba({handle_r}, {handle_g}, {handle_b}, {min(opacity * 0.8, 0.8)});
                     }}
                     
                     QScrollBar::add-line:horizontal, QScrollBar::sub-line:horizontal {{

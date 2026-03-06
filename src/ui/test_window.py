@@ -4,6 +4,7 @@ from PyQt6.QtGui import *
 from src.core.translator import tr
 from src.core.path_utils import get_base_path, get_winws_path
 from .standard_dialog import StandardDialog
+from src.ui import theme
 from src.widgets.style_menu import StyleMenu
 from src.editor.line_number_editor import LineNumberPlainTextEdit
 from src.editor.editor_highlighters import ListHighlighter
@@ -17,12 +18,8 @@ from concurrent.futures import ThreadPoolExecutor, as_completed
 import json
 import csv
 from datetime import datetime
-import pywinstyles
-
 class TestWindow(StandardDialog):
     def __init__(self, parent=None, winws_folder=None):
-   
-        pywinstyles.change_header_color(self, color="#181818")  
         # Преобразуем путь к winws в абсолютный
         if winws_folder is None:
             # Если путь не передан, используем стандартный путь
@@ -181,11 +178,7 @@ class TestWindow(StandardDialog):
         self.tabs.setCursor(Qt.CursorShape.PointingHandCursor)
         # Левая граница только у первой вкладки ("Результаты тестирования") как в редакторе для вкладки "Списки"
         tab_bar = self.tabs.tabBar()
-        tab_bar.setStyleSheet("""
-            QTabBar::tab:first {
-                border-left: 1px solid #2b2b2b;
-            }
-        """)
+        tab_bar.setStyleSheet(theme.tab_bar_first_border_style())
         # Вкладка 1: Результаты тестирования
         results_tab = QWidget()
         results_layout = QVBoxLayout()
@@ -282,13 +275,14 @@ class TestWindow(StandardDialog):
         # Статус - перемещен в заголовок окна
         self.status_label = QLabel()
         self.status_label.setAlignment(Qt.AlignmentFlag.AlignCenter)
-        self.status_label.setStyleSheet("""
-            QLabel {
-                color: #cccccc;
+        p = theme.palette()
+        self.status_label.setStyleSheet(f"""
+            QLabel {{
+                color: {p.fg_text};
                 font-size: 12px;
                 background-color: transparent;
                 border: none;
-            }
+            }}
         """)
         # Добавляем статус в центр заголовка (title_bar создается в StandardDialog.__init__)
         if hasattr(self, "title_bar"):
@@ -1056,18 +1050,7 @@ class TestWindow(StandardDialog):
     def _apply_progressbar_visible_style(self):
         """Возвращает прогрессбар к видимому стилю."""
         try:
-            self.progress.setStyleSheet("""
-                QProgressBar {
-                    background-color: #1e1e1e;
-                    border: 1px solid #3c3c3c;
-                    border-radius: 4px;
-                    text-align: center;
-                }
-                QProgressBar::chunk {
-                    background-color: #0078d4;
-                    border-radius: 4px;
-                }
-            """)
+            self.progress.setStyleSheet(theme.progress_bar_visible_style())
         except Exception:
             pass
     
