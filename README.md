@@ -1,6 +1,6 @@
 # ZapretDesktop
 
-<img width="642" height="512" alt="image" src="https://github.com/user-attachments/assets/dfca53af-2214-4851-aab0-a2fa9af90fd4" />
+<img width="642" height="512" alt="image" src="https://github.com/user-attachments/assets/74f2f3e7-45cf-43fe-8370-7272038a108b" />
 
 
 ---
