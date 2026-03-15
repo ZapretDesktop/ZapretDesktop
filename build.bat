@@ -1,6 +1,6 @@
 @echo off
 setlocal EnableDelayedExpansion
-
+ 
 echo ========================================
 echo   ZapretDesktop - Build
 echo ========================================
