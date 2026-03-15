@@ -164,8 +164,6 @@ def main():
             window.activateWindow()
     single_instance_server.newConnection.connect(on_show_request)
     single_instance_server.listen("ZapretDesktop_Show")
-    # single_instance_server держим до конца работы
-
     sys.exit(app.exec())
 
 
