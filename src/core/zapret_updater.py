@@ -260,7 +260,19 @@ class ZapretUpdater:
             import time
             time.sleep(2)
             
-            # Обновляем файлы по одному, не удаляя всю папку
+            # Обновляем файлы по одному, не удаляя всю папку.
+            # Учёт игнорируемых подпапок (например, lists, bin) задаётся через settings.update_ignore_folders.
+            ignore_folders = set()
+            try:
+                from src.core.config_manager import ConfigManager
+                cfg = ConfigManager()
+                s = cfg.load_settings()
+                # По умолчанию игнорируем lists
+                ignore_list = s.get('update_ignore_folders', ['lists'])
+                if isinstance(ignore_list, list):
+                    ignore_folders = {str(x).strip().lower() for x in ignore_list if str(x).strip()}
+            except Exception:
+                ignore_folders = set()
             if os.path.isdir(winws_source):
                 # Создаем список всех файлов и папок для обновления
                 items_to_update = []
@@ -268,10 +280,22 @@ class ZapretUpdater:
                     # Добавляем файлы
                     for file in files:
                         rel_path = os.path.relpath(os.path.join(root, file), winws_source)
+                        # Если файл лежит внутри игнорируемой верхнеуровневой подпапки,
+                        # и такая подпапка УЖЕ существует в целевой winws, пропускаем.
+                        # Если подпапки ещё нет, позволяем создать её и файлы (первичная установка).
+                        top_part = rel_path.split(os.sep, 1)[0].lower()
+                        if top_part in ignore_folders and os.path.exists(os.path.join(self.WINWS_FOLDER, top_part)):
+                            continue
                         items_to_update.append(('file', rel_path, os.path.join(root, file)))
                     # Добавляем папки
                     for dir_name in dirs:
                         rel_path = os.path.relpath(os.path.join(root, dir_name), winws_source)
+                        # Если верхнеуровневая подпапка входит в игнор-список и уже существует
+                        # в целевой winws, пропускаем её целиком. Если такой папки ещё нет —
+                        # позволяем создать (например, при первом появлении lists/bin).
+                        top_part = rel_path.split(os.sep, 1)[0].lower()
+                        if top_part in ignore_folders and os.path.exists(os.path.join(self.WINWS_FOLDER, top_part)):
+                            continue
                         items_to_update.append(('dir', rel_path, os.path.join(root, dir_name)))
                 
                 # Создаем папку winws если её нет
@@ -299,7 +323,12 @@ class ZapretUpdater:
                                             time.sleep(0.5)
                                         else:
                                             raise
-                            shutil.copytree(src_path, dst_path)
+                            try:
+                                shutil.copytree(src_path, dst_path)
+                            except FileExistsError:
+                                # На всякий случай игнорируем ситуацию, когда папка уже есть
+                                # (например, была создана параллельно другим процессом).
+                                pass
                         else:
                             # Если файл существует, удаляем его
                             if os.path.exists(dst_path):

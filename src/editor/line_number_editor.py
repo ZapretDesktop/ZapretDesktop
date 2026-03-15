@@ -151,8 +151,11 @@ class LineNumberPlainTextEdit(QPlainTextEdit):
     
     def line_number_area_paint_event(self, event):
         colors = _get_line_editor_colors()
+        bg = colors["line_number_bg"]
+        if hasattr(self, '_line_number_bg_override') and self._line_number_bg_override:
+            bg = _hex_to_qcolor(self._line_number_bg_override)
         painter = QPainter(self.line_number_area)
-        painter.fillRect(event.rect(), colors["line_number_bg"])
+        painter.fillRect(event.rect(), bg)
 
         cursor_block = self.textCursor().block()
         current_block_number = cursor_block.blockNumber()

@@ -267,7 +267,14 @@ class SettingsDialog(QDialog):
         self.start_minimized_cb.setCursor(Qt.CursorShape.PointingHandCursor)
         # Показываем «Запускать свернутым в трей» только когда включён пункт «Отображать в трее»
         self.start_minimized_cb.setVisible(self.show_tray_cb.isChecked())
-        self.show_tray_cb.toggled.connect(self.start_minimized_cb.setVisible)
+
+        def on_show_tray_toggled(checked: bool) -> None:
+            self.start_minimized_cb.setVisible(checked)
+            if not checked:
+                # При выключении трея сбрасываем «запускать свернутым», чтобы не оставалось true
+                self.start_minimized_cb.setChecked(False)
+
+        self.show_tray_cb.toggled.connect(on_show_tray_toggled)
         tray_grp.addWidget(self.start_minimized_cb)
         tray_group.setLayout(tray_grp)
         tray_layout.addWidget(tray_group)
@@ -426,6 +433,37 @@ class SettingsDialog(QDialog):
         self.zapret_repo_edit.setPlaceholderText(tr('settings_zapret_repo_placeholder', self.lang))
         self.zapret_repo_edit.setText(self.settings.get('zapret_repo', ''))
         update_grp.addWidget(self.zapret_repo_edit)
+
+        # Таблица игнорируемых подпапок winws при обновлении (например, lists, bin)
+        from PyQt6.QtWidgets import QTableWidget, QTableWidgetItem
+        ignore_label = QLabel(tr('settings_update_ignore_folders', self.lang))
+        update_grp.addWidget(ignore_label)
+        self.ignore_folders_table = QTableWidget(0, 1)
+        self.ignore_folders_table.setHorizontalHeaderLabels([tr('settings_update_ignore_folder_column', self.lang)])
+        self.ignore_folders_table.horizontalHeader().setStretchLastSection(True)
+        # Убираем нумерацию строк
+        vh = self.ignore_folders_table.verticalHeader()
+        if vh is not None:
+            vh.setVisible(False)
+        # Заполняем из настроек, по умолчанию игнорируем lists
+        ignore_list = self.settings.get('update_ignore_folders', ['lists'])
+        if isinstance(ignore_list, list):
+            for folder in ignore_list:
+                row = self.ignore_folders_table.rowCount()
+                self.ignore_folders_table.insertRow(row)
+                self.ignore_folders_table.setItem(row, 0, QTableWidgetItem(str(folder)))
+        update_grp.addWidget(self.ignore_folders_table)
+
+        # Кнопки добавить/удалить папку
+        btn_layout = QHBoxLayout()
+        self.btn_add_ignore_folder = QPushButton(tr('settings_update_ignore_add', self.lang))
+        self.btn_remove_ignore_folder = QPushButton(tr('settings_update_ignore_remove', self.lang))
+        self.btn_add_ignore_folder.clicked.connect(self._on_add_ignore_folder)
+        self.btn_remove_ignore_folder.clicked.connect(self._on_remove_ignore_folder)
+        btn_layout.addWidget(self.btn_add_ignore_folder)
+        btn_layout.addWidget(self.btn_remove_ignore_folder)
+        update_grp.addLayout(btn_layout)
+
         update_group.setLayout(update_grp)
         update_layout.addWidget(update_group)
         update_layout.addStretch()
@@ -469,6 +507,30 @@ class SettingsDialog(QDialog):
             return
         self.apps_table.removeRow(row)
 
+    def _on_add_ignore_folder(self):
+        """Добавляет подпапку winws в список игнорируемых при обновлении (например, lists, bin)."""
+        from PyQt6.QtWidgets import QInputDialog, QTableWidgetItem
+        folder, ok = QInputDialog.getText(
+            self,
+            tr('settings_update_ignore_add', self.lang),
+            tr('settings_update_ignore_folder_column', self.lang) + ':'
+        )
+        if not ok:
+            return
+        folder = folder.strip()
+        if not folder:
+            return
+        row = self.ignore_folders_table.rowCount()
+        self.ignore_folders_table.insertRow(row)
+        self.ignore_folders_table.setItem(row, 0, QTableWidgetItem(folder))
+
+    def _on_remove_ignore_folder(self):
+        """Удаляет выбранную подпапку из списка игнорируемых при обновлении."""
+        row = self.ignore_folders_table.currentRow()
+        if row < 0:
+            return
+        self.ignore_folders_table.removeRow(row)
+
     def get_settings_changes(self):
         """Возвращает словарь с изменениями настроек"""
         changes = {}
@@ -477,8 +539,13 @@ class SettingsDialog(QDialog):
             changes['language'] = lang
         if self.show_tray_cb.isChecked() != self.settings.get('show_in_tray', True):
             changes['show_in_tray'] = self.show_tray_cb.isChecked()
-        if self.start_minimized_cb.isChecked() != self.settings.get('start_minimized', False):
-            changes['start_minimized'] = self.start_minimized_cb.isChecked()
+        # «Запускать свернутым» имеет смысл только при включённом трее; при выключенном трее всегда сохраняем False
+        if self.show_tray_cb.isChecked():
+            if self.start_minimized_cb.isChecked() != self.settings.get('start_minimized', False):
+                changes['start_minimized'] = self.start_minimized_cb.isChecked()
+        else:
+            if self.settings.get('start_minimized', False):
+                changes['start_minimized'] = False
         if self.close_winws_cb.isChecked() != self.settings.get('close_winws_on_exit', True):
             changes['close_winws_on_exit'] = self.close_winws_cb.isChecked()
         changes['autostart_enabled'] = self.autostart_cb.isChecked()
@@ -515,4 +582,16 @@ class SettingsDialog(QDialog):
                         apps.append(name)
         if apps != self.settings.get('auto_restart_apps', []):
             changes['auto_restart_apps'] = apps
+        # Игнорируемые папки обновлений winws
+        ignore_list = []
+        if hasattr(self, 'ignore_folders_table'):
+            from PyQt6.QtWidgets import QTableWidgetItem
+            for row in range(self.ignore_folders_table.rowCount()):
+                item = self.ignore_folders_table.item(row, 0)
+                if isinstance(item, QTableWidgetItem):
+                    text = item.text().strip()
+                    if text:
+                        ignore_list.append(text)
+        if ignore_list != self.settings.get('update_ignore_folders', []):
+            changes['update_ignore_folders'] = ignore_list
         return changes

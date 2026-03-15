@@ -865,6 +865,11 @@ class MainWindow(StandardMainWindow):
             if 'auto_restart_apps' in changes:
                 self.settings['auto_restart_apps'] = changes['auto_restart_apps']
                 self.config.set_setting('auto_restart_apps', changes['auto_restart_apps'])
+            
+            # Игнорируемые подпапки winws при обновлении
+            if 'update_ignore_folders' in changes:
+                self.settings['update_ignore_folders'] = changes['update_ignore_folders']
+                self.config.set_setting('update_ignore_folders', changes['update_ignore_folders'])
         finally:
             self._settings_dialog = None
             self._settings_dialog_opening = False
@@ -1375,11 +1380,19 @@ class MainWindow(StandardMainWindow):
             update_dialog.set_status(tr('update_installing', lang))
             QApplication.processEvents()
 
-            # Режим "списки": обновляем только winws\lists, не требуем .bat в архиве
+            # Режимы установки дополнений:
+            # - lists: только winws\lists (txt-списки), без требований к .bat и игнор-листов
+            # - bin: только winws\bin (бинарники), без требований к .bat и игнор-листов
+            # - strategies: только .bat-стратегии в корень winws
+            # - full/прочее: полное обновление через ZapretUpdater (с учётом ignore_folders)
             if mode == "lists":
-                self._install_lists_from_zip(zip_path, lang)
+                self._install_lists_from_zip(zip_path, lang, ignore_settings=False)
+            elif mode == "bin":
+                self._install_bin_from_zip(zip_path, lang)
+            elif mode == "strategies":
+                self._install_strategies_from_zip(zip_path, lang)
             else:
-                # Для full/strategies/bin пока используем стандартную логику zapret_updater
+                # Полное обновление winws (zapret, бинарники, списки и т.д.)
                 self.zapret_updater.extract_zip_to_winws(zip_path)
             update_dialog.close()
             current_strategy = self._get_selected_strategy_name()
@@ -1546,14 +1559,73 @@ class MainWindow(StandardMainWindow):
             msg.setIcon(QMessageBox.Icon.Critical)
             msg.exec()
 
-    def _install_lists_from_zip(self, zip_path, lang):
-        """Устанавливает только списки (txt-файлы) из архива в winws\\lists."""
+    def _merge_list_content(self, update_content: str, current_content: str) -> str:
+        """
+        Объединяет содержимое обновления с пользовательскими дополнениями.
+        Строки из current, которых нет в update (по регистронезависимому сравнению),
+        добавляются в конец. Дубликаты не создаются.
+        """
+        def _normalize(s: str) -> str:
+            return s.strip().lower()
+
+        update_lines = [line.rstrip('\r\n') for line in update_content.splitlines()]
+        current_lines = [line.rstrip('\r\n') for line in current_content.splitlines()]
+
+        update_set = set()
+        for line in update_lines:
+            n = _normalize(line)
+            if n:
+                update_set.add(n)
+
+        user_additions = []
+        seen = set(update_set)
+        for line in current_lines:
+            n = _normalize(line)
+            if n and n not in seen:
+                seen.add(n)
+                user_additions.append(line)
+
+        result_lines = update_lines
+        if user_additions:
+            result_lines = update_lines + [''] + user_additions
+        return '\n'.join(result_lines) + ('\n' if result_lines else '')
+
+    def _install_lists_from_zip(self, zip_path, lang, ignore_settings: bool = True):
+        """Устанавливает только списки (txt-файлы) из архива в winws\\lists.
+        Делает бэкап .txt в lists, скачивает обновления и объединяет с пользовательскими доменами
+        без дубликатов (строки из обновления заменяют совпадающие; добавленные пользователем сохраняются).
+
+        ignore_settings:
+          - True  — обычное обновление через меню (учитывать настройки/игнорирование папок).
+          - False — установка списков из дополнений (addons), всегда писать в lists,
+                    даже если она есть в update_ignore_folders.
+        """
         import zipfile
+        import shutil
+
         winws_folder = get_winws_path()
         lists_folder = os.path.join(winws_folder, "lists")
         os.makedirs(lists_folder, exist_ok=True)
 
+        # При установке списков из дополнений нам не нужно отключать watcher/игнор,
+        # так как операция работает только с .txt в lists.
+
         try:
+            # 1. Бэкап существующих .txt в папке lists
+            backup_folder = os.path.join(
+                os.path.dirname(lists_folder),
+                f"lists_backup_{datetime.now().strftime('%Y%m%d_%H%M%S')}"
+            )
+            if os.path.isdir(lists_folder):
+                txt_files = [f for f in os.listdir(lists_folder) if f.lower().endswith('.txt')]
+                if txt_files:
+                    os.makedirs(backup_folder, exist_ok=True)
+                    for f in txt_files:
+                        src = os.path.join(lists_folder, f)
+                        if os.path.isfile(src):
+                            shutil.copy2(src, os.path.join(backup_folder, f))
+
+            # 2. Читаем содержимое из архива и объединяем с текущими файлами
             with zipfile.ZipFile(zip_path, "r") as zf:
                 for info in zf.infolist():
                     if info.is_dir():
@@ -1564,8 +1636,19 @@ class MainWindow(StandardMainWindow):
                     base = name.split("/")[-1]
                     dest_path = os.path.join(lists_folder, base)
                     try:
-                        with zf.open(info, "r") as src, open(dest_path, "wb") as dst:
-                            dst.write(src.read())
+                        with zf.open(info, "r") as src:
+                            update_bytes = src.read()
+                        update_content = update_bytes.decode("utf-8", errors="replace")
+
+                        if os.path.isfile(dest_path):
+                            with open(dest_path, "r", encoding="utf-8", errors="replace") as f:
+                                current_content = f.read()
+                            merged = self._merge_list_content(update_content, current_content)
+                            with open(dest_path, "w", encoding="utf-8") as f:
+                                f.write(merged)
+                        else:
+                            with open(dest_path, "w", encoding="utf-8") as f:
+                                f.write(update_content)
                     except Exception:
                         continue
         except Exception as e:
@@ -1574,7 +1657,87 @@ class MainWindow(StandardMainWindow):
             msg.setText(tr('addons_error_download', lang).format(str(e)))
             msg.setIcon(QMessageBox.Icon.Critical)
             msg.exec()
-    
+
+    def _install_bin_from_zip(self, zip_path, lang):
+        """Устанавливает бинарники из архива в winws\\bin.
+        Не требует наличия .bat в архиве, не учитывает игнорируемые папки.
+        """
+        import zipfile
+
+        winws_folder = get_winws_path()
+        bin_folder = os.path.join(winws_folder, "bin")
+        os.makedirs(bin_folder, exist_ok=True)
+
+        try:
+            with zipfile.ZipFile(zip_path, "r") as zf:
+                for info in zf.infolist():
+                    if info.is_dir():
+                        continue
+                    name = info.filename.replace("\\", "/")
+                    if not name:
+                        continue
+                    # Сохраняем относительную структуру из архива внутри winws\bin.
+                    # Если в архиве уже есть префикс bin/, отбрасываем его.
+                    parts = name.split("/", 1)
+                    if parts[0].lower() == "bin" and len(parts) > 1:
+                        rel_path = parts[1]
+                    else:
+                        rel_path = name
+                    if not rel_path:
+                        continue
+                    dest_path = os.path.join(bin_folder, rel_path)
+                    # Если файл уже существует, не трогаем его — только добавляем новые файлы «рядом».
+                    if os.path.exists(dest_path):
+                        continue
+                    try:
+                        os.makedirs(os.path.dirname(dest_path), exist_ok=True)
+                        with zf.open(info, "r") as src:
+                            data = src.read()
+                        with open(dest_path, "wb") as f:
+                            f.write(data)
+                    except Exception:
+                        continue
+        except Exception as e:
+            msg = configure_message_box(QMessageBox(self))
+            msg.setWindowTitle(tr('update_error_title', lang))
+            msg.setText(tr('addons_error_download', lang).format(str(e)))
+            msg.setIcon(QMessageBox.Icon.Critical)
+            msg.exec()
+
+    def _install_strategies_from_zip(self, zip_path, lang):
+        """Устанавливает .bat-стратегии из архива в корень winws.
+        Не требует наличия service.bat и не затрагивает другие файлы.
+        """
+        import zipfile
+        import shutil
+
+        winws_folder = get_winws_path()
+        os.makedirs(winws_folder, exist_ok=True)
+
+        try:
+            with zipfile.ZipFile(zip_path, "r") as zf:
+                for info in zf.infolist():
+                    if info.is_dir():
+                        continue
+                    name = info.filename.replace("\\", "/")
+                    base = name.split("/")[-1]
+                    if not base.lower().endswith(".bat"):
+                        continue
+                    dest_path = os.path.join(winws_folder, base)
+                    try:
+                        with zf.open(info, "r") as src:
+                            data = src.read()
+                        with open(dest_path, "wb") as f:
+                            f.write(data)
+                    except Exception:
+                        continue
+        except Exception as e:
+            msg = configure_message_box(QMessageBox(self))
+            msg.setWindowTitle(tr('update_error_title', lang))
+            msg.setText(tr('addons_error_download', lang).format(str(e)))
+            msg.setIcon(QMessageBox.Icon.Critical)
+            msg.exec()
+
     def manual_update_strategies(self):
         """Обновляет стратегии вручную из выбранного архива"""
         lang = self.settings.get('language', 'ru')
@@ -1748,47 +1911,25 @@ class MainWindow(StandardMainWindow):
                 
                 # Рекурсивно копируем все файлы и папки из winws_source в winws_folder
                 def copy_tree(src, dst):
-                    """Рекурсивно копирует дерево файлов и папок"""
+                    """Рекурсивно копирует дерево файлов и папок в winws, не перезатирая существующие."""
                     src = os.path.abspath(src)
                     dst = os.path.abspath(dst)
                     
                     if os.path.isdir(src):
-                        # Если папка назначения существует, удаляем её содержимое
-                        if os.path.exists(dst):
-                            # Удаляем существующую папку и её содержимое
-                            for attempt in range(5):
-                                try:
-                                    shutil.rmtree(dst)
-                                    break
-                                except (PermissionError, OSError):
-                                    if attempt < 4:
-                                        time.sleep(0.5)
-                                    else:
-                                        raise
-                        # Создаем папку назначения
+                        # Создаём папку назначения при необходимости, но не удаляем существующую
                         os.makedirs(dst, exist_ok=True)
-                        # Копируем содержимое папки
+                        # Копируем содержимое папки, не трогая уже существующие элементы
                         for item in os.listdir(src):
                             src_item = os.path.join(src, item)
                             dst_item = os.path.join(dst, item)
                             copy_tree(src_item, dst_item)
                     else:
-                        # Копируем файл
-                        # Сначала создаем родительские папки если нужно
+                        # Копируем файл только если его ещё нет в целевой winws
                         parent_dir = os.path.dirname(dst)
                         if parent_dir:
                             os.makedirs(parent_dir, exist_ok=True)
-                        # Удаляем существующий файл если есть
                         if os.path.exists(dst):
-                            for attempt in range(5):
-                                try:
-                                    os.remove(dst)
-                                    break
-                                except (PermissionError, OSError):
-                                    if attempt < 4:
-                                        time.sleep(0.5)
-                                    else:
-                                        raise
+                            return
                         shutil.copy2(src, dst)
                 
                 # Копируем все содержимое

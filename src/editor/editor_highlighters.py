@@ -77,6 +77,8 @@ class BatHighlighter(QSyntaxHighlighter):
             r"\bnetsh\b", r"\bpowershell\b", r"\btaskkill\b", r"\btasklist\b",
             r"\bipconfig\b", r"\bping\b", r"\bsc\b", r"\bschtasks\b", r"\breg\b",
             r"\battrib\b", r"\bmkdir\b", r"\brmdir\b", r"\bdir\b", r"\bmd\b", r"\brd\b",
+            r"\bcolor\b", r"\btitle\b", r"\bver\b", r"\bvol\b", r"\bmore\b",
+            r"\bassoc\b", r"\bftype\b", r"\bpath\b", r"\bwhere\b", r"\bwhoami\b",
         ]
         for kw in keywords:
             self._rules.append((QRegularExpression(kw, QRegularExpression.PatternOption.CaseInsensitiveOption), fmt_keyword))

@@ -4,7 +4,7 @@ from pathlib import Path
 from .path_utils import get_base_path, get_config_path as _get_config_path
 
 
-VERSION = "1.6.3"
+VERSION = "1.6.4"
 ZAPRET = "1.9.7b"
 MD5 = "ZapretDesktop@proton.me"
 

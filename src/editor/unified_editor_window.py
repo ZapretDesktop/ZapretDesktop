@@ -34,12 +34,42 @@ LIST_FILES = ['list-general.txt', 'list-exclude.txt', 'list-google.txt', 'ipset-
 ETC_FILES = ['hosts', 'lmhosts', 'networks', 'protocol', 'services']
 
 
+class CmdConsoleEdit(LineNumberPlainTextEdit):
+    """Консоль CMD: без контекстного меню, ПКМ = вставка; bg_window для консоли и нумерации."""
+
+    def __init__(self, tab_content, parent=None):
+        super().__init__(parent)
+        self._tab_content = tab_content
+        self.setContextMenuPolicy(Qt.ContextMenuPolicy.NoContextMenu)
+
+    def mouseReleaseEvent(self, event):
+        if event.button() == Qt.MouseButton.RightButton:
+            if self.textCursor().hasSelection():
+                self.copy()
+            else:
+                self.paste()
+            return
+        super().mouseReleaseEvent(event)
+
+    def paste(self):
+        from PyQt6.QtWidgets import QApplication
+        text = QApplication.clipboard().text()
+        if not text:
+            return
+        start = getattr(self._tab_content, '_cmd_input_start', 0)
+        cursor = self.textCursor()
+        pos = max(cursor.position(), start)
+        cursor.setPosition(pos)
+        cursor.insertText(text)
+        self.setTextCursor(cursor)
+
+
 def get_bat_files(winws_folder):
-    """Возвращает список .bat файлов из папки winws (исключая service.bat)."""
+    """Возвращает список .bat файлов из папки winws (включая service.bat)."""
     bat_files = []
     if os.path.exists(winws_folder):
         for filename in os.listdir(winws_folder):
-            if filename.endswith('.bat') and filename != 'service.bat' and os.path.isfile(os.path.join(winws_folder, filename)):
+            if filename.endswith('.bat') and os.path.isfile(os.path.join(winws_folder, filename)):
                 bat_files.append(filename)
         bat_files.sort()
     return bat_files
@@ -140,6 +170,7 @@ QListWidget::item:selected:!active {{ background-color: {p.accent}; color: #ffff
         self.editor.textChanged.connect(self.on_text_changed)
         self.editor.cursorPositionChanged.connect(self.on_cursor_position_changed)
         self.editor.cursorPositionChanged.connect(self._on_editor_cursor_changed)
+        self.editor.installEventFilter(self)
 
         if tab_kind == 'bat':
             right_splitter = QSplitter(Qt.Orientation.Vertical)
@@ -150,12 +181,15 @@ QListWidget::item:selected:!active {{ background-color: {p.accent}; color: #ffff
             cmd_layout = QVBoxLayout(cmd_widget)
             cmd_layout.setContentsMargins(0, 0, 0, 0)
             cmd_layout.setSpacing(0)
-            cmd_label = QLabel(tr('editor_cmd_panel_title', self.language))
-            cmd_label.setStyleSheet(f"color: {theme.palette().fg_text}; font-size: 11px; padding: 2px 6px;")
-            cmd_layout.addWidget(cmd_label)
+            self.cmd_label = QLabel(tr('editor_cmd_header', self.language).format("cmd"))
+            self._cmd_title = "cmd"
+            p = theme.palette()
+            self.cmd_label.setStyleSheet(f"background-color: {p.bg_window}; color: {p.fg_text}; font-size: 11px; padding: 2px 6px;")
+            cmd_layout.addWidget(self.cmd_label)
 
-            # Кастомный LineNumberPlainTextEdit как интерактивная консоль cmd.exe (и ввод, и вывод)
-            self.command_console = LineNumberPlainTextEdit()
+            # Консоль CMD: bg_window, без контекстного меню, ПКМ = вставка
+            self.command_console = CmdConsoleEdit(self)
+            self.command_console._line_number_bg_override = theme.palette().bg_window
             # Для консоли отключаем подсветку текущей строки
             if hasattr(self.command_console, "set_highlight_current_line_enabled"):
                 self.command_console.set_highlight_current_line_enabled(False)
@@ -165,10 +199,13 @@ QListWidget::item:selected:!active {{ background-color: {p.accent}; color: #ffff
             # Курсор всегда должен быть только на строке ввода (после '>')
             self._cmd_cursor_fixing = False
             self.command_console.cursorPositionChanged.connect(self._on_cmd_cursor_changed)
+            self.command_console.cursorPositionChanged.connect(self._on_cmd_status_update)
             cmd_layout.addWidget(self.command_console)
 
-            # Позиция начала текущей команды
+            # Позиция начала текущей команды, история команд
             self._cmd_input_start = 0
+            self._cmd_history = []
+            self._cmd_history_index = -1
 
             # Процесс cmd.exe для интерактивной работы
             # Кодировка консоли: для Windows явно используем chcp 1251
@@ -177,9 +214,11 @@ QListWidget::item:selected:!active {{ background-color: {p.accent}; color: #ffff
             else:
                 self._cmd_encoding = locale.getpreferredencoding(False) or 'utf-8'
 
-            from PyQt6.QtCore import QProcess
+            from PyQt6.QtCore import QProcess, QProcessEnvironment
             self.cmd_process = QProcess(self)
             self.cmd_process.setProgram("cmd.exe")
+            # Наследуем окружение (PATH и т.д.) — чтобы можно было запускать python, node и др.
+            self.cmd_process.setProcessEnvironment(QProcessEnvironment.systemEnvironment())
             # Для Windows сразу переключаем кодовую страницу на 1251 и отключаем эхо команд (/Q),
             # чтобы не дублировать введённые команды в выводе.
             if os.name == 'nt':
@@ -234,8 +273,10 @@ QListWidget::item:selected:!active {{ background-color: {p.accent}; color: #ffff
                 except Exception:
                     pass
         self.file_watcher.fileChanged.connect(self.on_file_changed_externally)
-        # Отслеживание добавления/удаления файлов в папке
-        if os.path.isdir(self.folder):
+        # Отслеживание добавления/удаления файлов в папке.
+        # Для вкладки lists не вешаем watcher на саму папку, чтобы избежать
+        # ошибок FindNextChangeNotification/Access Denied на winws\\lists.
+        if os.path.isdir(self.folder) and self.tab_kind != 'lists':
             try:
                 self.file_watcher.addPath(self.folder)
                 self.file_watcher.directoryChanged.connect(self._on_directory_changed)
@@ -415,6 +456,9 @@ QListWidget::item:selected:!active {{ background-color: {p.accent}; color: #ffff
         return os.path.join(self.folder, cur.text())
     
     def get_current_editor(self):
+        """Возвращает активный редактор: при фокусе на CMD-консоли — консоль, иначе основной редактор."""
+        if getattr(self, 'tab_kind', '') == 'bat' and hasattr(self, 'command_console') and self.command_console.hasFocus():
+            return self.command_console
         return self.editor
     
     def load_current_file(self):
@@ -595,20 +639,33 @@ QListWidget::item:selected:!active {{ background-color: {p.accent}; color: #ffff
         if win is not self and hasattr(win, 'update_editor_status'):
             win.update_editor_status(self._last_status, self._last_line, self._last_col)
 
+    def _download_zapret_hosts(self, zapret_path: str) -> bool:
+        """Скачивает zapret hosts в указанный путь. Возвращает True при успехе."""
+        hosts_url = 'https://raw.githubusercontent.com/Flowseal/zapret-discord-youtube/refs/heads/main/.service/hosts'
+        try:
+            curl_path = os.path.join(os.environ.get('SystemRoot', 'C:\\Windows'), 'System32', 'curl.exe')
+            if os.path.exists(curl_path):
+                r = subprocess.run([curl_path, '-L', '-s', '-o', zapret_path, hosts_url], capture_output=True, text=True, timeout=30)
+                if r.returncode == 0 and os.path.exists(zapret_path):
+                    return True
+            ps = f"Invoke-WebRequest -Uri '{hosts_url}' -TimeoutSec 15 -UseBasicParsing | Select-Object -ExpandProperty Content | Out-File -FilePath '{zapret_path}' -Encoding UTF8"
+            r = subprocess.run(['powershell', '-Command', ps], capture_output=True, text=True, timeout=30)
+            return r.returncode == 0 and os.path.exists(zapret_path)
+        except Exception:
+            return False
+
     def _update_zapret_hosts_view(self):
         """Обновляет нижний просмотр zapret_hosts.txt для вкладки etc и файла hosts."""
         if getattr(self, 'tab_kind', '') != 'etc' or not hasattr(self, 'zapret_hosts_view'):
             return
         current_name = self.file_list.currentItem().text() if self.file_list.currentItem() else self._current_file
         if not current_name or current_name.lower() != 'hosts':
-            # Для не-hosts просто показываем пусто
             self.zapret_hosts_view.clear()
             return
-        # Путь к zapret_hosts.txt совпадает с тем, что использовался в update_hosts_file
         temp_dir = os.environ.get('TEMP', 'C:\\Temp')
         zapret_path = os.path.join(temp_dir, 'zapret_hosts.txt')
-        if not os.path.exists(zapret_path):
-            self.zapret_hosts_view.setPlainText("zapret_hosts.txt not found.\n\nИспользуйте обновление hosts через основной интерфейс, чтобы загрузить файл.")
+        if not os.path.exists(zapret_path) and not self._download_zapret_hosts(zapret_path):
+            self.zapret_hosts_view.setPlainText(tr('msg_zapret_hosts_not_found', self.language))
             return
         try:
             with open(zapret_path, 'r', encoding='utf-8', errors='ignore') as f:
@@ -617,6 +674,14 @@ QListWidget::item:selected:!active {{ background-color: {p.accent}; color: #ffff
             self.zapret_hosts_view.moveCursor(self.zapret_hosts_view.textCursor().MoveOperation.Start)
         except Exception as e:
             self.zapret_hosts_view.setPlainText(f"Ошибка чтения zapret_hosts.txt:\n{e}")
+
+    def _on_cmd_status_update(self):
+        """Обновляет статус-бар при движении курсора в CMD-консоли (строка, столбец)."""
+        if getattr(self, 'tab_kind', '') != 'bat' or not hasattr(self, 'command_console') or not self.command_console.hasFocus():
+            return
+        line, col = self.command_console.get_cursor_position()
+        self._last_line, self._last_col = line, col
+        self._push_status()
 
     def _on_cmd_cursor_changed(self):
         """Гарантирует, что курсор во вкладке стратегий cmd находится только на строке ввода (после '>')."""
@@ -631,6 +696,9 @@ QListWidget::item:selected:!active {{ background-color: {p.accent}; color: #ffff
         # Актуализируем позицию начала ввода при изменении документа
         if self._cmd_input_start > doc.characterCount():
             self._cmd_input_start = max(0, doc.characterCount() - 1)
+        # Не сбрасываем курсор при активном выделении — даём возможность копировать
+        if cursor.hasSelection():
+            return
         if cursor.position() < self._cmd_input_start:
             self._cmd_cursor_fixing = True
             try:
@@ -640,11 +708,17 @@ QListWidget::item:selected:!active {{ background-color: {p.accent}; color: #ffff
                 self._cmd_cursor_fixing = False
 
     def eventFilter(self, obj, event):
-        """Обработка ввода в консоль команд (command_console) для вкладки стратегий."""
+        """Обработка ввода в консоль команд (command_console) и обновление статуса при смене фокуса."""
         from PyQt6.QtCore import QEvent, QProcess
         from PyQt6.QtGui import QTextCursor
 
+        if obj is self.editor and event.type() == QEvent.Type.FocusIn:
+            self.on_cursor_position_changed()
+            return False
         if getattr(self, 'tab_kind', '') == 'bat' and hasattr(self, 'command_console') and obj is self.command_console:
+            if event.type() == QEvent.Type.FocusIn:
+                self._on_cmd_status_update()
+                return False
             if event.type() == QEvent.Type.KeyPress:
                 key = event.key()
                 mods = event.modifiers()
@@ -654,14 +728,52 @@ QListWidget::item:selected:!active {{ background-color: {p.accent}; color: #ffff
                 if self._cmd_input_start > cursor.document().characterCount():
                     self._cmd_input_start = cursor.document().characterCount()
 
-                # Запрет редактирования истории (выше текущей команды)
-                if key in (Qt.Key.Key_Backspace, Qt.Key.Key_Left, Qt.Key.Key_Home):
+                ctrl = Qt.KeyboardModifier.ControlModifier
+                if mods == ctrl and hasattr(self, 'cmd_process'):
+                    # Ctrl+C / Ctrl+Break — завершить процесс и перезапустить (0x03 в stdin ломает python)
+                    if key in (Qt.Key.Key_C, Qt.Key.Key_Pause, Qt.Key.Key_Cancel) and self.cmd_process.state() == QProcess.ProcessState.Running:
+                        self._restart_cmd_process()
+                        return True
+                    # Остальные Ctrl+буква — отправляем в stdin (Ctrl+V/Ctrl+X не перехватываем)
+                    if self.cmd_process.state() == QProcess.ProcessState.Running:
+                        ctrl_map = {
+                            Qt.Key.Key_D: b'\x04', Qt.Key.Key_Z: b'\x1a', Qt.Key.Key_B: b'\x02',
+                            Qt.Key.Key_E: b'\x05', Qt.Key.Key_F: b'\x06', Qt.Key.Key_G: b'\x07',
+                            Qt.Key.Key_H: b'\x08', Qt.Key.Key_I: b'\x09', Qt.Key.Key_J: b'\x0a',
+                            Qt.Key.Key_K: b'\x0b', Qt.Key.Key_L: b'\x0c', Qt.Key.Key_M: b'\x0d',
+                            Qt.Key.Key_N: b'\x0e', Qt.Key.Key_O: b'\x0f', Qt.Key.Key_P: b'\x10',
+                            Qt.Key.Key_Q: b'\x11', Qt.Key.Key_R: b'\x12', Qt.Key.Key_S: b'\x13',
+                            Qt.Key.Key_T: b'\x14', Qt.Key.Key_U: b'\x15', Qt.Key.Key_W: b'\x17',
+                            Qt.Key.Key_Y: b'\x19', Qt.Key.Key_BracketLeft: b'\x1b',
+                            Qt.Key.Key_Backslash: b'\x1c', Qt.Key.Key_BracketRight: b'\x1d',
+                            Qt.Key.Key_AsciiCircum: b'\x1e', Qt.Key.Key_Underscore: b'\x1f',
+                        }
+                        if key in ctrl_map:
+                            self.cmd_process.write(ctrl_map[key])
+                            return True
+
+                # Ctrl+A — запретить выделение всего
+                if key == Qt.Key.Key_A and mods == Qt.KeyboardModifier.ControlModifier:
+                    return True
+
+                # Backspace: запрещать только при выделении (чтобы не удалять выделенный текст)
+                if key == Qt.Key.Key_Backspace and cursor.hasSelection():
+                    return True
+                # Backspace при курсоре в начале ввода — не удалять в область вывода
+                if key == Qt.Key.Key_Backspace and not cursor.hasSelection() and cursor.position() <= self._cmd_input_start:
+                    return True
+
+                # Отключаем навигацию по истории по стрелкам вверх/вниз
+                # (историю больше не используем для встроенного терминала)
+                if key in (Qt.Key.Key_Up, Qt.Key.Key_Down):
+                    return False
+
+                # Запрет Left/Home когда курсор в начале ввода
+                if key in (Qt.Key.Key_Left, Qt.Key.Key_Home):
                     if cursor.position() <= self._cmd_input_start:
                         return True
 
                 if key == Qt.Key.Key_Return or key == Qt.Key.Key_Enter:
-                    # Берём текст текущей команды от _cmd_input_start до конца без использования QTextCursor,
-                    # чтобы избежать ошибок setPosition при пустом/коротком документе
                     doc = self.command_console.document()
                     full_text = doc.toPlainText()
                     if self._cmd_input_start >= len(full_text):
@@ -669,15 +781,63 @@ QListWidget::item:selected:!active {{ background-color: {p.accent}; color: #ffff
                     else:
                         cmd = full_text[self._cmd_input_start:].replace('\u2029', '\n').strip()
 
-                    # Добавляем перевод строки в консоль (новая строка для следующей команды),
-                    # даже если команда пустая — как в обычном cmd
                     self.command_console.appendPlainText("")
                     self.command_console.moveCursor(QTextCursor.MoveOperation.End)
                     self._cmd_input_start = self.command_console.document().characterCount() - 1
 
-                    # Отправляем команду во встроенный cmd.exe.
-                    # Даже если команда пустая, отправляем пустую строку, чтобы cmd вывел новый промпт.
-                    self.run_command_from_input(cmd, allow_empty=True)
+                    cmd_lower = cmd.strip().lower()
+                    # Поддержка нескольких команд через & и экранирование с помощью ^
+                    raw_cmd = cmd.strip()
+                    if raw_cmd:
+                        parts: list[str] = []
+                        buf: list[str] = []
+                        escape = False
+                        for ch in raw_cmd:
+                            if escape:
+                                buf.append(ch)
+                                escape = False
+                                continue
+                            if ch == '^':
+                                escape = True
+                                continue
+                            if ch == '&':
+                                part = ''.join(buf).strip()
+                                if part:
+                                    parts.append(part)
+                                buf = []
+                            else:
+                                buf.append(ch)
+                        last_part = ''.join(buf).strip()
+                        if last_part:
+                            parts.append(last_part)
+                    else:
+                        parts = [""]
+
+                    # Сперва пробуем обработать встроенные команды; остальные отправляем в cmd.exe
+                    handled_all = True
+                    for part in parts:
+                        pl = part.lower()
+                        if pl == "cls":
+                            self._cmd_clear_screen()
+                            continue
+                        if pl.startswith("color "):
+                            attr = pl[6:].strip()
+                            if self._cmd_apply_color(attr):
+                                continue
+                        if pl.startswith("title "):
+                            new_title = part[6:].strip()
+                            self._cmd_title = new_title if new_title else "cmd"
+                            self._cmd_update_title_label()
+                            continue
+                        # Всё остальное отправляем во встроенный cmd
+                        self.run_command_from_input(part, allow_empty=True)
+                        handled_all = False
+
+                    # Для встроенных команд сами добавляем новый промпт
+                    if handled_all:
+                        self._cmd_append_prompt()
+                        return True
+
                     return True
 
                 # Остальной ввод — обычное поведение, но не даём уйти левее _cmd_input_start
@@ -688,11 +848,130 @@ QListWidget::item:selected:!active {{ background-color: {p.accent}; color: #ffff
 
         return super().eventFilter(obj, event)
 
+    def _cmd_update_title_label(self):
+        """Обновляет заголовок панели CMD."""
+        if hasattr(self, 'cmd_label') and hasattr(self, '_cmd_title'):
+            self.cmd_label.setText(tr('editor_cmd_header', self.language).format(self._cmd_title or "cmd"))
+
+    def _cmd_history_append(self, cmd: str):
+        """Добавляет команду в историю (без дубликатов подряд)."""
+        cmd = cmd.strip()
+        if not cmd:
+            return
+        if self._cmd_history and self._cmd_history[-1] == cmd:
+            return
+        self._cmd_history.append(cmd)
+        if len(self._cmd_history) > 200:
+            self._cmd_history.pop(0)
+
+    def _cmd_history_nav(self, delta: int) -> bool:
+        """Навигация по истории: Up (delta=-1), Down (delta=+1). Возвращает True если обработано."""
+        if not self._cmd_history:
+            return False
+        idx = self._cmd_history_index
+        if delta < 0:  # Up
+            if idx < 0:
+                idx = len(self._cmd_history) - 1
+            elif idx > 0:
+                idx -= 1
+        else:  # Down
+            if idx < 0:
+                return False
+            if idx >= len(self._cmd_history) - 1:
+                idx = -1
+            else:
+                idx += 1
+        self._cmd_history_index = idx
+        text = self._cmd_history[idx] if idx >= 0 else ""
+        self._cmd_replace_input_line(text)
+        return True
+
+    def _cmd_append_prompt(self):
+        """Добавляет новую строку с приглашением (path> ) для следующих команд."""
+        folder = self.folder or ''
+        prompt = f"{folder}> " if folder else "> "
+        self.command_console.insertPlainText(prompt)
+        self._cmd_input_start = self.command_console.document().characterCount() - len(prompt)
+        self.command_console.moveCursor(QTextCursor.MoveOperation.End)
+
+    def _cmd_replace_input_line(self, text: str):
+        """Заменяет текущую строку ввода (от _cmd_input_start до конца) на text."""
+        # Переопределяем _cmd_input_start на основе последней строки и "промпта",
+        # чтобы история не «съедала» часть пути (например, превращая
+        # "D:\\path> color 0f" в "Dcolor 0f").
+        doc = self.command_console.document()
+        full_text = doc.toPlainText()
+        # Начало последней строки
+        last_nl = full_text.rfind('\n')
+        line_start = last_nl + 1 if last_nl != -1 else 0
+        line = full_text[line_start:]
+        # Ищем в последней строке хвост "> " и считаем вводом всё, что после него.
+        prompt_pos = line.rfind('> ')
+        if prompt_pos != -1:
+            self._cmd_input_start = line_start + prompt_pos + 2
+        else:
+            # Если по какой-то причине нет "> ", считаем вводом всю строку.
+            self._cmd_input_start = line_start
+
+        cursor = self.command_console.textCursor()
+        cursor.setPosition(self._cmd_input_start)
+        cursor.movePosition(QTextCursor.MoveOperation.End, QTextCursor.MoveMode.KeepAnchor)
+        cursor.removeSelectedText()
+        cursor.insertText(text)
+        self.command_console.setTextCursor(cursor)
+
+    def _cmd_clear_screen(self):
+        """Очищает консоль (команда cls)."""
+        if not hasattr(self, 'command_console'):
+            return
+        folder = self.folder or ''
+        prompt = f"{folder}> " if folder else "> "
+        self.command_console.clear()
+        self.command_console.setPlainText(prompt)
+        self._cmd_input_start = len(prompt)
+        self.command_console.moveCursor(QTextCursor.MoveOperation.End)
+
+    _CMD_COLORS = {
+        '0': '#0c0c0c', '1': '#0037da', '2': '#13a10e', '3': '#3a96dd',
+        '4': '#c50f1f', '5': '#881798', '6': '#c19c00', '7': '#cccccc',
+        '8': '#767676', '9': '#3b78ff', 'a': '#16c60c', 'b': '#61d6d6',
+        'c': '#e74856', 'd': '#b4009e', 'e': '#f9f1a5', 'f': '#f2f2f2',
+    }
+
+    def _cmd_apply_color(self, attr: str) -> bool:
+        """Применяет color XY (фон и текст). Возвращает True если применено."""
+        attr = attr.replace(' ', '').lower()
+        if len(attr) < 2:
+            return False
+        bg_c = self._CMD_COLORS.get(attr[0])
+        fg_c = self._CMD_COLORS.get(attr[1])
+        if not bg_c or not fg_c:
+            return False
+        self.command_console.setStyleSheet(f"background-color: {bg_c}; color: {fg_c}; border: none;")
+        if hasattr(self.command_console, '_line_number_bg_override'):
+            self.command_console._line_number_bg_override = bg_c
+        if hasattr(self.command_console, 'refresh_line_number_area'):
+            self.command_console.refresh_line_number_area()
+        return True
+
+    def _restart_cmd_process(self):
+        """Завершает cmd и перезапускает (Ctrl+C — «прервать» python и др.)."""
+        if getattr(self, 'tab_kind', '') != 'bat' or not hasattr(self, 'cmd_process'):
+            return
+        try:
+            self.cmd_process.kill()
+            self.cmd_process.waitForFinished(2000)
+        except Exception:
+            pass
+        self.command_console.appendPlainText("\n^C\n")
+        self._cmd_input_start = self.command_console.document().characterCount() - 1
+        self.command_console.moveCursor(self.command_console.textCursor().MoveOperation.End)
+        self.cmd_process.start()
+
     def run_command_from_input(self, cmd_text: str, allow_empty: bool = False):
         """Отправляет команду во встроенный cmd.exe (для вкладки стратегий)."""
         if getattr(self, 'tab_kind', '') != 'bat':
             return
-        original = cmd_text
         cmd_text = cmd_text.strip()
         if not allow_empty and not cmd_text:
             return
@@ -732,7 +1011,7 @@ QListWidget::item:selected:!active {{ background-color: {p.accent}; color: #ffff
             self._cmd_input_start = self.command_console.document().characterCount() - 1
         except Exception:
             pass
-    
+
     def open_folder(self):
         try:
             if os.path.exists(self.folder):
@@ -1100,6 +1379,21 @@ class UnifiedEditorWindow(StandardDialog):
         self.action_word_wrap.setShortcut(QKeySequence("Alt+Z"))
         self.action_word_wrap.triggered.connect(self.toggle_word_wrap)
         view_menu.addAction(self.action_word_wrap)
+
+        # Terminal menu
+        terminal_menu = StyleMenu(self.menu_bar)
+        terminal_menu.setTitle(tr('editor_menu_terminal', self.language))
+        self.menu_bar.addMenu(terminal_menu)
+
+        self.action_run_current_file = QAction(tr('editor_terminal_run_file', self.language), self)
+        self.action_run_current_file.setShortcut(QKeySequence("F5"))
+        self.action_run_current_file.triggered.connect(self.run_current_file_in_terminal)
+        terminal_menu.addAction(self.action_run_current_file)
+
+        self.action_run_selection = QAction(tr('editor_terminal_run_selection', self.language), self)
+        self.action_run_selection.setShortcut(QKeySequence("F6"))
+        self.action_run_selection.triggered.connect(self.run_selection_in_terminal)
+        terminal_menu.addAction(self.action_run_selection)
         
         # Tools menu
         tools_menu = StyleMenu(self.menu_bar)
@@ -1275,6 +1569,43 @@ class UnifiedEditorWindow(StandardDialog):
         tab = self.current_tab_content()
         if tab:
             tab.set_line_ending(text)
+
+    # --- Терминал (меню "Терминал") ---
+
+    def _ensure_cmd_console_focus(self, tab):
+        if getattr(tab, 'tab_kind', '') == 'bat' and hasattr(tab, 'command_console'):
+            tab.command_console.setFocus()
+
+    def run_current_file_in_terminal(self):
+        """Запускает текущий файл во встроенном терминале текущей вкладки стратегий."""
+        tab = self.current_tab_content()
+        if not tab or getattr(tab, 'tab_kind', '') != 'bat':
+            return
+        path = tab.get_current_file_path()
+        if not path:
+            return
+        self._ensure_cmd_console_focus(tab)
+        # Используем команду start с полным путём к файлу
+        import os
+        full_path = os.path.abspath(path)
+        # Пустая строка как заголовок окна, затем полный путь к батнику
+        cmd = f'start \"\" \"{full_path}\"'
+        if hasattr(tab, 'run_command_from_input'):
+            tab.run_command_from_input(cmd, allow_empty=False)
+
+    def run_selection_in_terminal(self):
+        """Отправляет выделенный в редакторе текст в терминал как команду."""
+        tab = self.current_tab_content()
+        if not tab or getattr(tab, 'tab_kind', '') != 'bat':
+            return
+        editor = tab.get_current_editor()
+        cursor = editor.textCursor()
+        text = cursor.selectedText().replace('\u2029', '\n').strip()
+        if not text:
+            return
+        self._ensure_cmd_console_focus(tab)
+        if hasattr(tab, 'run_command_from_input'):
+            tab.run_command_from_input(text, allow_empty=False)
     
     def update_editor_status(self, message, line=1, col=1):
         if self.status_bar is None:
@@ -1342,6 +1673,12 @@ class UnifiedEditorWindow(StandardDialog):
             self.action_comment.setEnabled(can_comment)
         if hasattr(self, 'action_uncomment'):
             self.action_uncomment.setEnabled(can_uncomment)
+        if hasattr(self, 'action_run_current_file'):
+            can_run_file = getattr(tab, 'tab_kind', '') == 'bat' and bool(tab.get_current_file_path())
+            self.action_run_current_file.setEnabled(can_run_file)
+        if hasattr(self, 'action_run_selection'):
+            can_run_sel = getattr(tab, 'tab_kind', '') == 'bat' and editor.textCursor().hasSelection()
+            self.action_run_selection.setEnabled(can_run_sel)
     
     def save_current_file(self):
         tab = self.current_tab_content()
